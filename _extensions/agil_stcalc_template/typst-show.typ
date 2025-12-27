@@ -16,9 +16,6 @@
 $if(title)$
   title: [$title$],
 $endif$
-$if(subtitle)$
-  subtitle: [$subtitle$],
-$endif$
 $if(by-author)$
   authors: (
 $for(by-author)$
@@ -30,9 +27,53 @@ $endif$
 $endfor$
     ),
 $endif$
-$if(date)$
-  date: [$date$],
+
+$if(company)$
+  company: [$company$],
 $endif$
+
+$if(proj_no)$
+  proj_no: [$proj_no$],
+$endif$
+
+$if(calc_no)$
+  calc_no: [$calc_no$],
+$endif$
+
+$if(proj_title)$
+  proj_title: [$proj_title$],
+$endif$
+
+$if(client)$
+  client: [$client$],
+$endif$
+
+$if(proj_phase)$
+  proj_phase: [$proj_phase$],
+$endif$
+
+$if(logo_company)$
+  logo_company: "$logo_company$",
+  $endif$
+$if(logo_client)$
+  logo_client: "$logo_client$",
+  $endif$
+
+$if(revisions)$
+  rev_data: (
+  $for(revisions)$
+  (
+      rev_no: [$revisions.rev_no$],
+      rev_date: [$revisions.rev_date$],
+      rev_desc: [$revisions.rev_desc$],
+      rev_prep: [$revisions.rev_prep$],
+      rev_check: [$revisions.rev_check$],
+      rev_app: [$revisions.rev_app$],
+  ),
+  $endfor$
+  ),
+$endif$
+
 $if(lang)$
   lang: "$lang$",
 $endif$
@@ -41,7 +82,6 @@ $if(region)$
 $endif$
 $if(abstract)$
   abstract: [$abstract$],
-  abstract-title: "$labels.abstract$",
 $endif$
 $if(margin)$
   margin: ($for(margin/pairs)$$margin.key$: $margin.value$,$endfor$),
@@ -51,45 +91,16 @@ $if(papersize)$
 $endif$
 $if(mainfont)$
   font: ("$mainfont$",),
-$elseif(brand.typography.base.family)$
-  font: $brand.typography.base.family$,
 $endif$
 $if(fontsize)$
   fontsize: $fontsize$,
-$elseif(brand.typography.base.size)$
-  fontsize: $brand.typography.base.size$,
-$endif$
-$if(title)$
-$if(brand.typography.headings.family)$
-  heading-family: $brand.typography.headings.family$,
-$endif$
-$if(brand.typography.headings.weight)$
-  heading-weight: $brand.typography.headings.weight$,
-$endif$
-$if(brand.typography.headings.style)$
-  heading-style: "$brand.typography.headings.style$",
-$endif$
-$if(brand.typography.headings.color)$
-  heading-color: $brand.typography.headings.color$,
-$endif$
-$if(brand.typography.headings.line-height)$
-  heading-line-height: $brand.typography.headings.line-height$,
-$endif$
 $endif$
 $if(section-numbering)$
   sectionnumbering: "$section-numbering$",
 $endif$
-  pagenumbering: $if(page-numbering)$"$page-numbering$"$else$none$endif$,
 $if(toc)$
   toc: $toc$,
 $endif$
-$if(toc-title)$
-  toc_title: [$toc-title$],
-$endif$
-$if(toc-indent)$
-  toc_indent: $toc-indent$,
-$endif$
-  toc_depth: $toc-depth$,
   cols: $if(columns)$$columns$$else$1$endif$,
   doc,
 )

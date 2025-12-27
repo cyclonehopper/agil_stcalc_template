@@ -1,18 +1,154 @@
 ---
-title: Untitled
+engine: julia
+execute:
+  cache: true
+mainfont: Lato
 format:
   agil_stcalc_template-typst: default
+
+company: Agilitus
+proj_no: 25NNN
+calc_no: 25nnn-ST-CAL-0001
+proj_title: Some Project
+client: Some Client
+proj_phase: Detailed Design
+logo_company: "images/logo-agilitus.png"
+logo_client: "images/logo-client.png"
+revisions:
+- rev_no: A
+  rev_date: 24/04/2024
+  rev_desc: Preliminary
+  rev_prep: A. Engineer
+  rev_check: B. Engineer
+  rev_app: C. Engineer 
 ---
 
-## Introduction
 
-*TODO* Create an example file that demonstrates the formatting and features of your format.
+```{=typst}
+#like_header("Calculation Objective / Scope")
+```
 
-## More Information
+This is a Quarto document template (`.qmd`) intended to be used to develop engineering calculations in the format of a typical engineering calculation pad.
 
 You can learn more about creating custom Typst templates here: 
 
 <https://quarto.org/docs/prerelease/1.4/typst.html#custom-formats>
 
+For actual use, the introduction should be a _brief_ description of the calculation objective and scope and ideally include a picture.
 
+```{=typst}
+#like_header("Calculation Assumptions")
+```
 
+Document key calculation assumptions here. Generally just repeat the assumptions from the assumptions tab, but if there are a lot summarise the most important handful.									
+
+* Assumption 1
+* Assumption 2
+* ...
+
+```{=typst}
+#like_header("Software Used")
+```
+
+* MS Excel for calculations
+* Space Gass / Strand7 / RFEM, your packages here....
+* ...
+
+```{=typst}
+#like_header("Holds")
+```
+
+* Hold 1
+* Hold 2
+* Hold 3
+
+{{< pagebreak >}}
+
+```{=typst}
+#block(above: 2em, below: 2em)[
+    #outline(
+      title: [Table of Contents],
+      depth: 2,
+      indent: auto
+    );
+    ]
+```
+
+{{< pagebreak >}}
+
+# Header 1
+
+## Header 2
+
+### Header 3
+
+# Introduction {#sec-intro}
+
+## Calculation Objective / Scope
+
+This calculation covers the design of the structural steel and foundation for the XXX.
+
+The structural steel consists of three individual sub-structures isolated to control vibrations. These buildings are all braced framed systems and columns are considered pinned base.
+
+Foundations are either combined or individual spread reinforced concrete footings.
+
+In addition to the main structural framing, the calculation verifies the structural adequacy of:									
+
+* Footings including hold down bolts									
+* Mechanical frames and equipment plinths
+* Associated chute-work and chute supports
+
+## Exclusions
+This calculation excludes the following:
+
+* Design of the process / mechanical function for items where structural design has been completed, e.g. chutes, hoppers
+* Structural design of vendor supplied equipment
+
+## Basis of Design									
+
+This calculation has been completed in accordance with XXXX. The Basis of Design for this calculation is described in XXXX, with mechanical load data in accordance with the XXXX.
+
+## Design Standards and Codes
+Unless specifically noted, the design complies with Australian Standards and selected international standards as listed in the Design Criteria. The following summarises the key standards used in producing this calculation:
+
+* AS 1170.0 - 2002		Structural design actions - Part 0: General principles
+* AS 1170.1 - 2002		Structural design actions - Part 1: Permanent, imposed and other actions
+* AS 1170.2 - 2021		Structural design actions - Part 2: Wind actions
+* AS 1170.4 - 2007		Structural design actions - Part 4: Earthquake Actions in Australia
+* AS 3600 - 2018		Concrete structures
+* AS 4100 - 1998		Steel structures
+
+## Other Reference Documents
+
+Other reference documents used in this design include:
+
+* Geotechnical Report
+* Certified Vendor Drawings
+
+{{< pagebreak >}}
+
+# Assumptions
+
+## Holds
+
+## Assumptions
+
+## Relied on Information
+
+{{< pagebreak >}}
+
+# Drawings
+This calculation covers the structural components on the drawings and/or sketches listed in the following table:	
+
+|Drawing Number|Drawing Title| Revision |
+|---------|----------|----------|
+|0001|General Arrangement|A|
+|0002|Details 1|0|
+|0003|Details 2|C1|
+|0004|Earthworks|x|
+: {tbl-refdwgs tbl-colwidths="[20,70,10]"}
+
+{{< pagebreak >}}
+
+# Methodology, Loading and Load Combinations
+Do some calculation here.

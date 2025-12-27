@@ -1,0 +1,4 @@
+[deps]
+MyUnits = "abadc402-6f9d-4890-8dd5-a009c65c203c"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"

@@ -7,10 +7,11 @@ format:
   agil_stcalc_template-typst: default
 
 company: Agilitus
-proj_no: 25NNN
-calc_no: 25nnn-ST-CAL-0001
-proj_title: Some Project
 client: Some Client
+proj_no: 25NNN
+proj_title: Some Project
+calc_no: 25nnn-ST-CAL-0001
+calc_title: Some Calculation Title
 proj_phase: Detailed Design
 logo_company: "images/logo-agilitus.png"
 logo_client: "images/logo-client.png"
@@ -75,12 +76,7 @@ Document key calculation assumptions here. Generally just repeat the assumptions
 ```
 
 {{< pagebreak >}}
-
-# Header 1
-
-## Header 2
-
-### Header 3
+ 
 
 # Introduction {#sec-intro}
 

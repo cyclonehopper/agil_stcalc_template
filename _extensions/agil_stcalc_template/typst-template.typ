@@ -67,7 +67,7 @@
   logo_client: none,
   rev_data: none,
   cols: 1,
-  margin: (inside: 1.5cm, outside: 1.5cm, top: 5cm, bottom: 2cm),
+  margin: (inside: 1.5cm, outside: 1.5cm, top: 5cm, bottom: 2.5cm),
   paper: "a4",
   lang: "en",
   region: "AU",
@@ -116,6 +116,7 @@
     footer-descent: 30%,
     header: [
       #set text(size: 0.9em)
+      #set table(stroke: 0.6pt)
       #table(
         columns: (1.5fr, 3.5fr, 1.3fr, 1.6fr),
         rows: (1.5cm, 0.5cm, 0.5cm, 0.5cm),

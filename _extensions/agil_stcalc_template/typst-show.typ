@@ -13,8 +13,8 @@
 //   - https://typst.app/docs/tutorial/making-a-template/
 //   - https://github.com/typst/templates
 #show: doc => article(
-$if(title)$
-  title: [$title$],
+$if(calc_title)$
+  title: [$calc_title$],
 $endif$
 $if(by-author)$
   authors: (

@@ -7,61 +7,44 @@ format:
   agil_stcalc_template-typst: default
 
 company: Agilitus
-client: Some Client
-proj_no: 25NNN
-proj_title: Some Project
-calc_no: 25nnn-ST-CAL-0001
-calc_title: Some Calculation Title
+client: BWN Services
+proj_no: 25229
+proj_title: GOODMAN FIELDER ACCESS SYSTEM
+calc_no: 25229-ST-CAL-0001
+calc_title: Walkway Structural Design
 proj_phase: Detailed Design
 logo_company: "images/logo-agilitus.png"
 logo_client: "images/logo-client.png"
 revisions:
 - rev_no: A
-  rev_date: 24/04/2024
-  rev_desc: Preliminary
-  rev_prep: A. Engineer
-  rev_check: B. Engineer
-  rev_app: C. Engineer 
+  rev_date: 16/01/2026
+  rev_desc: IFIR
+  rev_prep: Josua A
+  rev_check: F. Hakim
+  rev_app:  
 ---
 
 
 ```{=typst}
 #like_header("Calculation Objective / Scope")
 ```
-
-This is a Quarto document template (`.qmd`) intended to be used to develop engineering calculations in the format of a typical engineering calculation pad.
-
-You can learn more about creating custom Typst templates here: 
-
-<https://quarto.org/docs/prerelease/1.4/typst.html#custom-formats>
-
-For actual use, the introduction should be a _brief_ description of the calculation objective and scope and ideally include a picture.
+* Design the walkways
 
 ```{=typst}
 #like_header("Calculation Assumptions")
 ```
-
-Document key calculation assumptions here. Generally just repeat the assumptions from the assumptions tab, but if there are a lot summarise the most important handful.									
-
-* Assumption 1
-* Assumption 2
-* ...
+* 2.5kPa live load
 
 ```{=typst}
 #like_header("Software Used")
 ```
-
-* MS Excel for calculations
 * Space Gass / Strand7 / RFEM, your packages here....
-* ...
+* Quarto / Julia  for documentation
 
 ```{=typst}
 #like_header("Holds")
 ```
-
-* Hold 1
-* Hold 2
-* Hold 3
+* n/a
 
 {{< pagebreak >}}
 
@@ -76,7 +59,17 @@ Document key calculation assumptions here. Generally just repeat the assumptions
 ```
 
 {{< pagebreak >}}
- 
+
+```{julia}
+#| label: Usings
+
+import Pkg
+Pkg.activate(".")
+
+using Unitful, Unitful.DefaultSymbols
+using MyUnits
+```
+
 
 # Introduction {#sec-intro}
 

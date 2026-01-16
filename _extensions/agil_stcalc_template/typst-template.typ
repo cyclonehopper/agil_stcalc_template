@@ -115,7 +115,7 @@
     ],
     footer-descent: 30%,
     header: [
-      #set text(size: 0.9em)
+      #set text(size: 0.8em)
       #set table(stroke: 0.6pt)
       #table(
         columns: (1.5fr, 3.5fr, 1.3fr, 1.6fr),

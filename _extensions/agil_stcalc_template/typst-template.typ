@@ -148,6 +148,23 @@
   set heading(numbering: sectionnumbering)
   show heading: set block(below: 1em, above: 2em)
 
+  // Configure figure numbering to be section-based (e.g., Figure 2.1)
+  set figure(numbering: n => {
+    let h1 = counter(heading).get().at(0, default: 0)
+    if h1 > 0 {
+      numbering("1.1", h1, n)
+    } else {
+      numbering("1", n)
+    }
+  })
+
+  // Reset figure counters at each level 1 heading
+  show heading.where(level: 1): it => {
+    counter(figure.where(kind: image)).update(0)
+    counter(figure.where(kind: table)).update(0)
+    it
+  }
+
   place(
     bottom,
     float: true,

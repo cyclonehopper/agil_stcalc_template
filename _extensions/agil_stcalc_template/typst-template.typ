@@ -158,6 +158,11 @@
     }
   })
 
+   // Set the font size for figure captions
+  show figure.caption: set text(size: 0.85em, weight: "semibold")
+
+
+
   // Reset figure counters at each level 1 heading
   show heading.where(level: 1): it => {
     counter(figure.where(kind: image)).update(0)

@@ -3,6 +3,7 @@ engine: julia
 execute:
   cache: true
 mainfont: Lato
+fig-align: center
 format:
   agil_stcalc_template-typst: default
 
@@ -141,3 +142,25 @@ This calculation covers the structural components on the drawings and/or sketche
 
 # Methodology, Loading and Load Combinations
 Do some calculation here.
+
+<!-- some double column figures -->
+::: {#fig-builtup_loads layout-ncol=2}
+
+![Central to armour plate](images/rfem_model/builtup/load-central.png){#fig-load_central_builtup height="250"}
+
+![Edge of armour plate, line load](images/rfem_model/builtup/load-edge.png){#fig-load_edge_wb1000 height="250"}
+
+Impact loading scenarios
+:::
+
+<!-- attaching pdf files, A4, portrait -->
+
+```{=typst}
+#let pdf-file = "appendices/baseplate_anchor_design.pdf"
+#let n-pages = 16 // Set the total number of pages here
+
+#for i in range(1, n-pages + 1) [
+  // for ideastatica, use 90% scaling
+  #image(pdf-file, page: i, width: 95%)  
+]
+```

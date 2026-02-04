@@ -72,31 +72,19 @@ using MyUnits
 ```
 
 
-# Introduction {#sec-intro}
-
-## Calculation Objective / Scope
-
-This calculation covers the design of the structural steel and foundation for the XXX.
-
-The structural steel consists of three individual sub-structures isolated to control vibrations. These buildings are all braced framed systems and columns are considered pinned base.
-
-Foundations are either combined or individual spread reinforced concrete footings.
-
-In addition to the main structural framing, the calculation verifies the structural adequacy of:									
-
-* Footings including hold down bolts									
-* Mechanical frames and equipment plinths
-* Associated chute-work and chute supports
-
-## Exclusions
-This calculation excludes the following:
-
-* Design of the process / mechanical function for items where structural design has been completed, e.g. chutes, hoppers
-* Structural design of vendor supplied equipment
-
 ## Basis of Design									
 
-This calculation has been completed in accordance with XXXX. The Basis of Design for this calculation is described in XXXX, with mechanical load data in accordance with the XXXX.
+In general, design shall be in accordance with AS 4100 and other required standards.
+
+## Design Standards and Codes
+Unless specifically noted, the design complies with Australian Standards and selected international standards as listed in the Design Criteria. The following summarises the key standards used in producing this calculation:
+
+* AS 1170.0 - 2002		Structural design actions - Part 0: General principles
+* AS 1170.1 - 2002		Structural design actions - Part 1: Permanent, imposed and other actions
+* AS 1170.2 - 2021		Structural design actions - Part 2: Wind actions
+* AS 1170.4 - 2007		Structural design actions - Part 4: Earthquake Actions in Australia
+* AS 3600 - 2018		Concrete structures
+* AS 4100 - 1998		Steel structures
 
 ## Design Standards and Codes
 Unless specifically noted, the design complies with Australian Standards and selected international standards as listed in the Design Criteria. The following summarises the key standards used in producing this calculation:

@@ -1,7 +1,10 @@
 ---
 engine: julia
-execute:
-  cache: true
+# so pythoncall / quartonotebookrunner works
+julia: 
+  env: ["QUARTO_JULIA_PROJECT=.", "JULIA_CONDAPKG_BACKEND=Null"]
+execute: 
+  cache: true 
 mainfont: Lato
 fig-align: center
 format:

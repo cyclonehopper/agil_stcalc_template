@@ -155,3 +155,18 @@ Impact loading scenarios
   #image(pdf-file, page: i, width: 95%)  
 ]
 ```
+
+# Sketches
+
+```{=typst}
+#set page(paper: "a3", flipped: true, header: none)
+```
+
+```{=typst}
+#let pdf-file = "raw_pdf/25068-ST-SKH-0005_A Flot cell strcuture cable ladders.pdf"
+#let n-pages = 4 // Set the total number of pages here
+#for i in range(1, n-pages + 1) [
+  // for ideastatica, use 90% scaling
+  #image(pdf-file, page: i, width: 85%)  
+]
+```

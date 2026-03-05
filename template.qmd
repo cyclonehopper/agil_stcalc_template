@@ -173,6 +173,8 @@ Impact loading scenarios
 
 ```{=typst}
 // for A3
+#set page(header: none, margin: (top: 1.5cm)) 
+
 #set page(paper: "a3", flipped: true, header: none)
 #let pdf-file = "raw_pdf/595--6-005564S1RD-Markup_Mechanical_Masses_C1_tripper.pdf"
 #let pdf-file2 = "raw_pdf/595--6-005737S1RH-mechanical weight mark up C2.pdf"

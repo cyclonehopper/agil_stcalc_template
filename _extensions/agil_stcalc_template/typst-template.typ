@@ -109,7 +109,7 @@
 
   set page(
     paper: paper,
-    margin: margin,
+    margin: (inside: 1.5cm, outside: 1.5cm, top: 4.5cm, bottom: 2.5cm),
     numbering: "1/1",
     footer: context [
       #if counter(page).get().first() != 1 {
@@ -149,7 +149,7 @@
         [*Project Phase*], [#proj_phase], [*Date*], table.cell(align: right)[#resolve_date(rev_data.last().rev_date)],
       )
     ],
-    header-ascent: 10%,
+    header-ascent: 1.5cm,
   )
 
   set par(justify: true)

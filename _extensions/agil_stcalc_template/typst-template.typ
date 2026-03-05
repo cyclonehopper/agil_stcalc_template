@@ -18,7 +18,7 @@
 
 #let resolve_date(d) = {
   if d == [today] {
-    datetime.today().display("[day] [month repr:short] [year]")
+    datetime.today().display("[day]/[month]/[year repr:last_two]")
   } else {
     d
   }

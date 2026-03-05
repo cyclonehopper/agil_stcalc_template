@@ -16,6 +16,14 @@
   if logo_path != none { [#image(logo_path)] } else { [] }
 }
 
+#let resolve_date(d) = {
+  if d == [today] {
+    datetime.today().display("[day] [month repr:short] [year]")
+  } else {
+    d
+  }
+}
+
 #let rev_table(max_items: 3, data) = {
   // Build a revision table for the footer.
   // If no. revisions > max_items only max_items-1 will be shown
@@ -31,7 +39,7 @@
   for rev in data {
     (
       rev.rev_no,
-      rev.rev_date,
+      resolve_date(rev.rev_date),
       rev.rev_desc,
       rev.rev_prep,
       rev.rev_check,
@@ -138,7 +146,7 @@
         [*Project Title*], [#proj_title], [*Project No.*], table.cell(align: right)[#proj_no],
         [*Client*], [#client], [*Calculation No.*], table.cell(align: right)[#calc_no],
         [*Calculation Title*], [#title], [*Revision*], table.cell(align: right)[#rev_data.last().rev_no],
-        [*Project Phase*], [#proj_phase], [*Date*], table.cell(align: right)[#rev_data.last().rev_date],
+        [*Project Phase*], [#proj_phase], [*Date*], table.cell(align: right)[#resolve_date(rev_data.last().rev_date)],
       )
     ],
     header-ascent: 10%,

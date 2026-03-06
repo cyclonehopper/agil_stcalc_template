@@ -1,49 +1,53 @@
 ---
 engine: julia
-# so pythoncall / quartonotebookrunner works
 julia: 
-  env: ["QUARTO_JULIA_PROJECT=.", "JULIA_CONDAPKG_BACKEND=Null"]
+  env: ["JULIA_CONDAPKG_BACKEND=Null"]
 execute: 
   cache: true 
 mainfont: Lato
 fig-align: center
 format:
   agil_stcalc_template-typst: default
-
 company: Agilitus
-client: BWN Services
-proj_no: 25229
-proj_title: GOODMAN FIELDER ACCESS SYSTEM
-calc_no: 25229-ST-CAL-0001
-calc_title: Walkway Structural Design
+client: Glencore
+proj_no: 26016
+proj_title: Glencore Port C2A Conveyor Relocation Engineering
+calc_no: 26016-ST-CAL-0002
+calc_title: C2A Permanent Installation Structural Design
 proj_phase: Detailed Design
 logo_company: "images/logo-agilitus.png"
-logo_client: "images/logo-client.png"
+logo_client: "images/logo-MIM-glencore.png"
 revisions:
 - rev_no: A
-  rev_date: 16/01/2026
-  rev_desc: IFIR
+  rev_date: today
+  rev_desc: IFIR 
   rev_prep: Josua A
   rev_check: F. Hakim
   rev_app:  
 ---
 
-
 ```{=typst}
 #like_header("Calculation Objective / Scope")
 ```
-* Design the walkways
+* Relocation of existing C2A conveyor to grid 18-19
+* Assessment of existing support structure
+
 
 ```{=typst}
 #like_header("Calculation Assumptions")
 ```
-* 2.5kPa live load
+* Conveyor walkway live load is taken as 1.25kPa for global support design 
+* Handrail is 0.15kN/m per handrail 
+* Maximum operating wind load is taken as 25m/s
+* Knee braces at shed 1 rafter on grid 18-19 shall be strengthened per drg 595-4-6267
+* Truck bay strenthening shall be completed prior to arrival of storm season.
+
 
 ```{=typst}
 #like_header("Software Used")
 ```
-* Space Gass / Strand7 / RFEM, your packages here....
-* Quarto / Julia  for documentation
+* Space Gass 14.00 for structural analysis
+* IdeaStatica 25.1 for connections
 
 ```{=typst}
 #like_header("Holds")
@@ -56,7 +60,7 @@ revisions:
 #block(above: 2em, below: 2em)[
     #outline(
       title: [Table of Contents],
-      depth: 2,
+      depth: 3,
       indent: auto
     );
     ]
@@ -66,55 +70,84 @@ revisions:
 
 ```{julia}
 #| label: Usings
+#| echo: false
+#| output: false
 
 import Pkg
 Pkg.activate(".")
 
-using Unitful, Unitful.DefaultSymbols
-using MyUnits
+using Unitful, Unitful.DefaultSymbols, DataFrames, Plots
+using MyUnits, WindLoadModule, MyHelper
+using MaterialModule, AS4100, AS4324_1, SeismicLoadModule
+using MyHelper: _println
+
+dir = @__DIR__
+
 ```
 
+# Introduction
+
+## Objective / Scope
+
+CV2A will be relocated to grid 18-19. This document presents the calculation required to demonstrate the soundness of the existing CV2A structure and the existing roof structure supporting CV2A during operation.
+
+This calculation is supporting documentation for the following sketches/drawings
+
+- 26016-ST-SKT-0002 - 26016-ST-SKT-0002_A C2A Relocation and Details
+
+## Assumptions
+* Strengthening of the rafters in shed 1 are installed for load combinations involving ultimate wind load.
+* Tapered flange channel 703x76 is taken from BS 4-1:1993 and is modelled as parallel flange channel (TFC is not an option in Space Gass). The flange thickness is taken as 11.2mm. The increase in thickness near the root is ignored.
+* services load taken as 100kg/m per conveyor.
+
+
+## Exclusions
+* n/a
 
 ## Basis of Design									
 
-In general, design shall be in accordance with AS 4100 and other required standards.
+In general, design shall be in accordance with AS 4100 and other relevant standards.
 
 ## Design Standards and Codes
+
 Unless specifically noted, the design complies with Australian Standards and selected international standards as listed in the Design Criteria. The following summarises the key standards used in producing this calculation:
 
 * AS 1170.0 - 2002		Structural design actions - Part 0: General principles
-* AS 1170.1 - 2002		Structural design actions - Part 1: Permanent, imposed and other actions
-* AS 1170.2 - 2021		Structural design actions - Part 2: Wind actions
-* AS 1170.4 - 2007		Structural design actions - Part 4: Earthquake Actions in Australia
-* AS 3600 - 2018		Concrete structures
+* AS 1170.1 - 2002		Structural design actions - Part 1: Permanent, imposed and other actions  
+* AS 1170.2 - 2002		Structural design actions - Part 2: Wind actions  
+* AS 1170.4 - 2002		Structural design actions - Part 4: Earthquake actions  
 * AS 4100 - 1998		Steel structures
 
-## Design Standards and Codes
-Unless specifically noted, the design complies with Australian Standards and selected international standards as listed in the Design Criteria. The following summarises the key standards used in producing this calculation:
+## Other Referenced Documents
 
-* AS 1170.0 - 2002		Structural design actions - Part 0: General principles
-* AS 1170.1 - 2002		Structural design actions - Part 1: Permanent, imposed and other actions
-* AS 1170.2 - 2021		Structural design actions - Part 2: Wind actions
-* AS 1170.4 - 2007		Structural design actions - Part 4: Earthquake Actions in Australia
-* AS 3600 - 2018		Concrete structures
-* AS 4100 - 1998		Steel structures
+Other information used in this design mainly for loads calculations, include:
 
-## Other Reference Documents
+* 21206-ME-CAL-002 - Conveyor C1 Tripper Arrangement Weight
+* 22131-ST-CAL-0001 Dust collector frame calculation
+* 22131-ST-CAL-0002 Shed 1 assessment
+* 26016-ST-CAL-0001 CV2A Relocation Disassembly Structural Design
 
-Other reference documents used in this design include:
 
-* Geotechnical Report
-* Certified Vendor Drawings
+## Methodology
+
+C2A hanger/support locations are kept similar to its previous location, except for support beam at grid B, where its moved 300mm east to miss an internal column. This is done so to minimize changes to the existing steel.
+
+Space Gass 14.00 was used to model the structure, with the following considerations:
+
+1. C2A installed and operating, together with C1, in its final position. C2 is not operating, just parked as close as possible to grid 18, where a stopper is located 2.3m from grid 18. The model is analysed for load combinations listed in @sec-load_combinations. Flooded belt is considered for this scenario, where C1 and C2A are fully loaded.
+
+2. C1 tripper relocating southward where the head end wheels on grid 18. At that point, the tripper can not operate because the chute position is blocked by CV2A. The model is analysed only for load combination 1.35G.
+3. Where C2 is operating, it is deemed not critical due to is relative position from grid 18, hence no further analysis was performed.
+4. Grid 19 is not critical, as it is similar to grid 25 and 26, supporting C2A prior to its relocation.
+
 
 {{< pagebreak >}}
+ 
+# Loading and Load Combinations
 
-# Assumptions
+## Structural dead load (GDstruct)
 
-## Holds
-
-## Assumptions
-
-## Relied on Information
+Roof dead load, reproduced from 22131-ST-CAL-0001
 
 {{< pagebreak >}}
 

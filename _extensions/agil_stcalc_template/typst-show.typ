@@ -91,12 +91,20 @@ $if(papersize)$
 $endif$
 $if(mainfont)$
   font: ("$mainfont$",),
-$endif$
+$endif$ 
 $if(fontsize)$
   fontsize: $fontsize$,
 $endif$
 $if(section-numbering)$
   sectionnumbering: "$section-numbering$",
+$endif$
+$if(mathfont)$
+  mathfont: ($for(mathfont)$"$mathfont$",$endfor$),
+$endif$
+$if(codefont)$
+  codefont: ($for(codefont)$"$codefont$",$endfor$),
+$elseif(brand.typography.monospace.family)$
+  codefont: $brand.typography.monospace.family$,
 $endif$
 $if(toc)$
   toc: $toc$,

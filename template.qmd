@@ -4,8 +4,6 @@ julia:
   env: ["JULIA_CONDAPKG_BACKEND=Null"]
 execute: 
   cache: true 
-mainfont: Lato
-fig-align: center
 format:
   agil_stcalc_template-typst: default
 company: Agilitus

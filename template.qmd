@@ -1,9 +1,9 @@
 ---
 engine: julia
-julia: 
-  env: ["JULIA_CONDAPKG_BACKEND=Null"]
-execute: 
-  cache: true 
+julia:
+  env: ["JULIA_CONDAPKG_BACKEND=Null", "QUARTO_JULIA_PROJECT= ."]
+execute:
+  cache: true
 format:
   agil_stcalc_template-typst: default
 company: Agilitus
@@ -18,10 +18,10 @@ logo_client: "images/logo-MIM-glencore.png"
 revisions:
 - rev_no: A
   rev_date: today
-  rev_desc: IFIR 
+  rev_desc: IFIR
   rev_prep: Josua A
   rev_check: F. Hakim
-  rev_app:  
+  rev_app:
 ---
 
 ```{=typst}
@@ -34,8 +34,8 @@ revisions:
 ```{=typst}
 #like_header("Calculation Assumptions")
 ```
-* Conveyor walkway live load is taken as 1.25kPa for global support design 
-* Handrail is 0.15kN/m per handrail 
+* Conveyor walkway live load is taken as 1.25kPa for global support design
+* Handrail is 0.15kN/m per handrail
 * Maximum operating wind load is taken as 25m/s
 * Knee braces at shed 1 rafter on grid 18-19 shall be strengthened per drg 595-4-6267
 * Truck bay strenthening shall be completed prior to arrival of storm season.
@@ -102,7 +102,7 @@ This calculation is supporting documentation for the following sketches/drawings
 ## Exclusions
 * n/a
 
-## Basis of Design									
+## Basis of Design
 
 In general, design shall be in accordance with AS 4100 and other relevant standards.
 
@@ -111,9 +111,9 @@ In general, design shall be in accordance with AS 4100 and other relevant standa
 Unless specifically noted, the design complies with Australian Standards and selected international standards as listed in the Design Criteria. The following summarises the key standards used in producing this calculation:
 
 * AS 1170.0 - 2002		Structural design actions - Part 0: General principles
-* AS 1170.1 - 2002		Structural design actions - Part 1: Permanent, imposed and other actions  
-* AS 1170.2 - 2002		Structural design actions - Part 2: Wind actions  
-* AS 1170.4 - 2002		Structural design actions - Part 4: Earthquake actions  
+* AS 1170.1 - 2002		Structural design actions - Part 1: Permanent, imposed and other actions
+* AS 1170.2 - 2002		Structural design actions - Part 2: Wind actions
+* AS 1170.4 - 2002		Structural design actions - Part 4: Earthquake actions
 * AS 4100 - 1998		Steel structures
 
 ## Other Referenced Documents
@@ -140,7 +140,7 @@ Space Gass 14.00 was used to model the structure, with the following considerati
 
 
 {{< pagebreak >}}
- 
+
 # Loading and Load Combinations
 
 ## Structural dead load (GDstruct)
@@ -150,7 +150,7 @@ Roof dead load, reproduced from 22131-ST-CAL-0001
 {{< pagebreak >}}
 
 # Drawings
-This calculation covers the structural components on the drawings and/or sketches listed in the following table:	
+This calculation covers the structural components on the drawings and/or sketches listed in the following table:
 
 |Drawing Number|Drawing Title| Revision |
 |---------|----------|----------|
@@ -183,7 +183,7 @@ Impact loading scenarios
 
 #for i in range(1, n-pages + 1) [
   // for ideastatica, use 90% scaling
-  #image(pdf-file, page: i, width: 95%)  
+  #image(pdf-file, page: i, width: 95%)
 ]
 ```
 
@@ -198,13 +198,13 @@ Impact loading scenarios
 #let n-pages = 4 // Set the total number of pages here
 #for i in range(1, n-pages + 1) [
   // for ideastatica, use 90% scaling
-  #image(pdf-file, page: i, width: 85%)  
+  #image(pdf-file, page: i, width: 85%)
 ]
 ```
 
 ```{=typst}
 // for A3
-#set page(header: none, margin: (top: 1.5cm)) 
+#set page(header: none, margin: (top: 1.5cm))
 
 #set page(paper: "a3", flipped: true, header: none)
 #let pdf-file = "raw_pdf/595--6-005564S1RD-Markup_Mechanical_Masses_C1_tripper.pdf"

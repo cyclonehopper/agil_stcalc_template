@@ -1,0 +1,5 @@
+[PythonCall]
+exe = "/home/ubuntu/julia_repo/python_venv/bin/python3"
+
+[CondaPkg]
+backend = "Null"

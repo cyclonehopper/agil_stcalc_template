@@ -93,7 +93,7 @@
 ) = {
   set text(lang: lang, region: region, font: font, size: fontsize)
   show heading: set text(
-    font: "Bitter",
+    font: font,
     fill: rgb("#002D72"),
     size: 1.0em,
     weight: "semibold",

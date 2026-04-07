@@ -1,7 +1,5 @@
 ---
-engine: julia
-julia:
-  env: ["JULIA_CONDAPKG_BACKEND=Null", "QUARTO_JULIA_PROJECT= ."]
+engine: julia 
 execute:
   cache: true
 format:

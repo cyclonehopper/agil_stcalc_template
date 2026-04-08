@@ -1,0 +1,2596 @@
+---
+execute:
+  daemon: 600
+  cache: true
+  dir: "C:/Users/Josua/QuartoScratch"
+    
+julia: 
+  exeflags: ["--project=@." ] 
+
+mainfont: Lato
+fontsize: 11pt
+
+format:
+  pdf:
+    pdf-engine: lualatex
+    number-sections: true 
+    include-in-header: julia/header.tex
+    filters:
+      - julia/revision-filter.lua
+    monofont: Julia Mono
+    monofontoptions: "Scale=0.75"
+    papersize: A4
+
+header-includes:
+  - \def\companyName{Agilitus Qld}
+  - \def\logoCompany{C:/Users/Josua/Juliarepo/agilitex_header/images/logo-agilitus.png}
+  - \def\client{Abbot Point Bulkcoal Pty Ltd}
+  - \def\logoClient{images/general/logo-apo.png}
+  - \def\projNo{25071}
+  - \def\projTitle{APO C325 Tripper Rail Repair Design}
+  - \def\calcNumber{25071-ST-CAL-0003}
+  - \def\calcTitle{Check Existing Rail}
+  - \def\projPhase{Detailed Design}
+
+revisions:
+  - revNo: A
+    revDate: 25/08/25
+    revDesc: IFIR
+    revAuthor: Josua A.
+    revCheck: Faruk H.
+    revApp:  
+
+  - revNo: B
+    revDate: 23/09/25
+    revDesc: Cycles updated
+    revAuthor: Josua A.
+    revCheck: Faruk H.
+    revApp: 
+---
+
+```{=latex}
+\coverpageHeader{Calculation Objective / Scope}
+```
+- Review design for fatigue of existing rail
+- Evaluate the remaining design life of existing rail, if fatigue damage is less than 1.0
+
+```{=latex}
+\coverpageHeader{Calculation Assumptions} 
+```
+- n/a
+
+```{=latex}
+\coverpageHeader{Software Used} 
+```
+
+- Space Gass for supporting steel work
+- RFEM for 3D modelling of rail bar
+
+```{=latex}
+\coverpageHeader{Holds} 
+```
+
+-   n/a
+
+{{< pagebreak >}}
+
+<!-- add TOC using latex -->
+
+```{=latex}
+\tableofcontents
+```
+
+{{< pagebreak >}}
+
+# Introduction {#sec-intro}
+
+## Basis of Design
+
+In general, design is in accordance with AS 4100 for steel.
+
+## Design Standards and Codes
+
+Unless specifically noted, the design complies with Australian Standards and selected international standards. The following summarizes the key standards used in producing this calculation:
+
+- AS 1085.1  - 2002 Railway track material Part 1: Steel rails
+- AS 1170.0  - 2002 Structural design actions - Part 0: General principles
+- AS 1170.1  - 2002 Structural design actions - Part 1: Permanent, imposed and other actions
+- AS 1170.2  - 2021 Structural design actions - Part 2: Wind actions 
+- AS 1418.1  - 2021 Cranes, hoists and winches - Part 1: General requirements
+- AS 1418.18 - 2021 Cranes, hoists and winches - Part 18: Crane runways and monorails
+- AS 4100    - 1998 Steel structures
+- AS 5100.2  - 2017 Bridge Design - Part 2: Design Loads
+- AS 5221.1  - 2021 Cranes - Design principles for loads and load combinations
+- BS 7608    - 1993 Code of practice for Fatigue design and assessment of steel structures
+
+## Reference Documents
+
+Reference documents used in this design include:
+
+- Existing structure design drawings
+- Site photos, and videos
+- Strain gauge data
+
+{{< pagebreak >}}
+
+# Assumptions {#sec-assumptions}
+
+- Rail bar material for 31kg rail is taken as similar to 41kg rails 
+- Fy = 420MPa, Fu = 700MPa per AS 1085.1 
+
+
+{{< pagebreak >}}
+
+# Methodology
+
+## Stresses sign convention
+
+- For strain data, +ve is compression
+- Stress analysis results from RFEM, +ve is tension
+
+## Calibration of wheel loads
+
+For the assessment of fatigue damage and remaining life, it is important to get a relatively good data. In this case, strain data was deemed important to calibrate the loads. The strain data are used to reverse calculate the actual wheel loads. Statistical analysis is then used to make sense of the data.  For vertical load calibration, the average stress at the mid-thickness of the rail web is used. As will be shown in @sec-strain-data-analysis, the average vertical stresses ($\sigma_z$) appears to have some scatter. The wheel load is then calibrated to achieve an average stress of one standard deviation above the mean.  This correlates well with the load estimated based on design drawings, refer @sec-calculated-wheel-load.
+
+## Design wheel loads
+
+THe design wheel loads will be derived from the calibrated vertical load. The tripper is treated like a rail car, hence the dynamic factors (more conservative than from AS 5221.1, for dead load only) will be taken from AS 5100.  Steering or skewing firces will be derived from AS 5221.1.
+
+## Fatigue assessment
+
+The fatigue assessment is to be carried out using the S-N curves in AS 4100.  However, guidance from BS 7608 are taken into consideration regarding the treatment of the compressive stress component of the stress range. 
+
+The rolling contact fatigue is taken into consideration when verifying the design of the size of the rail and wheel, refer @sec-legacy-design, hence no further check is done on the rail contact.  However, for the critical web stresses due to bending caused by transverse or eccentric load, fatigue analysis is carried in accordance with AS 4100 S-N curve.
+
+```{julia} 
+#| label: Pkg.activate
+#| echo: false
+#| output: false
+using Pkg
+Pkg.activate(".")
+# PackageSpec(path=raw"C:\\Users\\Josua\\Juliarepo\\MyUnits/") 
+```
+
+```{julia}
+#| label: Using
+#| echo: false
+#| output: false
+#| 
+using Unitful, DataFrames, CSV, Plots, Unitful.DefaultSymbols, Interpolations, Statistics, Revise
+using MyUnits, MyHelper, WindLoadModule, AS4100, MaterialModule, Distributions
+```
+
+
+# Loads
+
+## Wind load
+
+### Tripper - Transverse
+
+#### Wind parameters
+
+```{julia}
+href = 32m - 13.0m
+wp = AS1170WindParam(; Ruls=500yrs, Rsls=25yrs, Region="C", href=href, cat=1.0, Ms=1.0, Mt=1.0, Vo=20m / s)
+printlnstruct(wp)
+```
+
+#### RHS legs, rounded corners
+
+```{julia}
+b = 400mm
+bVdes = wp.Vdesθoper * b |> m^2 / s
+```
+
+```{julia}
+vx = [4.0, 10.0]m^2 / s
+vy = [1.2, 0.6]
+interp = interpolate((vx,), vy, Gridded(Linear()))
+Cd = interp(bVdes)
+```
+
+```{julia}
+# use
+Cd = 1.2
+Fw_rhs = Cd * wp.pressure * 400mm |> kN / m
+```
+
+#### UB678
+
+```{julia}
+# rear beam is shielded, calculate average for both
+fWindForceOpenSec(wp, 678mm, rolled_shape="UB") * (1 + 0.2) / 2
+```
+
+#### UB460
+
+```{julia}
+# rear beam is shielded, calculate average for both
+fWindForceOpenSec(wp, 460mm, rolled_shape="UB") * (1 + 0.2) / 2
+```
+
+#### Belt
+
+```{julia}
+fWindForceOpenSec(wp, 1800mm, rolled_shape="PFC", θ=90°)
+```
+
+#### Headchute
+
+![](images/general/headchute_aproj.png)
+
+```{julia}
+b = 3.4m
+c = 3.6m
+
+tmp, Cd = fWindForceFreeStandingWall(wp; b=b, c=c, h=href);  # get drag factor only
+Cd
+```
+
+```{julia}
+Aproj = 9.7m^2
+Cd * wp.pressure * Aproj |> kN
+```
+
+## Tripper Wheels {#sec-calculated-wheel-load}
+
+### Dead load, plus 10% allowance
+
+Total dead load plus 10% allowance
+
+![](images/general/wheel_loads_Gtotal.png)
+
+```{julia}
+Pwheel_Gnew = 96kN;
+```
+
+### Operating material load, No wind {#sec-wheel-oper-nowind}
+
+from gravity loads:
+
+![](images/general/wheel_loads_oper_no_wind.png)
+
+```{julia}
+Pwheel_Qoper = 103kN
+```
+
+when pushing the tripper:
+
+```{julia}
+μ_rolling = 0.003 # typical design values for rolling steel rails to steel wheels
+Gtotal = Pwheel_Qoper * 4
+
+μ_rolling * Gtotal |> kN
+```
+
+By inspection, safe to assume the towing forces are negligible.
+
+### Operating material load, with operating wind
+
+![](images/general/wheel_loads_oper_wind.png)
+
+
+## Rail wheel load eccentricity
+
+-   Determination is based on AS1418.18 - 2024.
+
+Considering the wear on the rail head, the rail is conservatively taken as a flat head rail
+
+```{julia}
+#| echo: false
+#| output: false
+
+#  flat head rails
+# Bt = 63.5mm
+# Rcr = 11.0mm
+# er_flat = (Bt - 4Rcr / 3) / 3
+
+# take the mean
+# er = (er_convex + er_flat)/2
+```
+
+```{julia}
+#  convex head
+
+Bt = 63.5mm
+Rcr = 11.0mm
+er_convex = (Bt - 2Rcr) / 8
+```
+
+## Rail load dynamic allowance {#sec-rail-load-dynamic}
+
+-   Determination based on AS5100, section 9 Rail Traffic (light rail)
+
+![](images/general/table_9.5.2.png)
+
+```{julia}
+n_spans = 18
+Lm = 12.0m
+x = 1.5
+
+Lα = x * Lm
+α = 2.16 / (sqrt(Lα / m) - 0.2) - 0.27
+α = 0.2 ≥ α ? 0.2 : α ≥ 0.67 ? 0.67 : α
+
+# dynamic load factor
+γdyn_uls = 1 + α
+γdyn_ufat = 1 + α / 2 # refer clause 9.8.1, AS 5100
+
+```
+
+## Skew Loads
+
+![](images/general/wheel_pair_notations.png){width="90%"}
+
+From @sec-wheel_calibration, the tripper total weight
+
+```{julia}
+Wtripper = 4 * Pwheel_Qoper
+```
+
+![](images/general/skew_load_diag.png){width="90%"}
+
+```{julia}
+#| label: skew load func
+n = 2           # number of wheel pairs 
+bh = Bt
+wb = 16m
+vd = [0.0m, wb]
+# l = 4.5m        # distance bet rails
+μ = 0.5         # position of Wtripper from rail 1
+μ0 = 0.2        # normal opeartion environment
+sgmin = 10mm    # clearance, min for travelling crane/tripper
+sg = 10mm       # design sg
+
+
+αg = sgmin / wb |> rad
+αt = 0.001rad
+αw = 0.1 * bh / wb |> rad
+
+α = min(αg + αt + αw, 0.015)
+
+# for IFF drive (approximation fro the tripper, towed)
+
+h = sum([d^2 for d in vd]) / sum(vd)
+v = 1 - sum(vd) / (n * h)
+f = μ0 * (1 - exp(-250 * α))
+Fy = v * f * Wtripper
+
+vv1 = (1 - μ) / n * (1 .- vd / h)
+vv2 = μ / n * (1 .- vd / h)
+
+Fy1 = f * Wtripper * vv1
+Fy2 = f * Wtripper * vv2
+maximum(Fy1)
+```
+
+# Strain Data - Ocean side rail bar {#sec-strain-data-analysis}
+
+```{julia}
+#| label: functions
+
+function f1_IMJ_N45(x)
+    return (-0.0034x^6 - 0.0303x^5 - 0.0176x^4 + 0.3982x^3 + 0.7434x^2 + 389.58x) / 1e6 * 201000MPa
+end
+
+function f2_IMJ_90(x)
+    return (-0.0164x^6 - 0.1169x^5 + 0.0687x^4 + 1.5637x^3 + 1.1497x^2 + 386.86x) / 1e6 * 201000MPa
+end
+
+function f3_IMJ_S45(x)
+    return (0.0018x^6 - 0.0126x^5 - 0.1725x^4 - 0.0507x^3 + 1.9612x^2 + 392.6x) / 1e6 * 201000MPa
+end
+
+function f4_IEJ_90(x)
+    return (0.0006x^6 + 0.0074x^5 + 0.0016x^4 - 0.2842x^3 - 1.1645x^2 + 305.61x) / 1e6 * 201000MPa
+end
+
+function f5_OMJ_N45(x)
+    return (0.0383x^6 + 0.2013x^5 - 0.3824x^4 - 0.5709x^3 + 12.756x^2 + 413.9x) / 1e6 * 201000MPa
+end
+
+function f6_OEJ_90(x)
+    return (0.0058x^6 + 0.025x^5 - 0.19x^4 - 0.8292x^3 + 1.035x^2 + 311.58x) / 1e6 * 201000MPa
+end
+
+function f7_OMJ_S45(x)
+    return (-0.0475x^6 - 0.2458x^5 + 0.882x^4 + 4.4279x^3 - 5.3421x^2 + 367.92x) / 1e6 * 201000MPa
+end
+
+function f8_OMJ_90(x)
+    return (-0.0423x^6 - 0.2318x^5 + 0.7055x^4 + 4.1498x^3 - 2.7454x^2 + 373.27x) / 1e6 * 201000MPa
+end
+
+# Dictionary mapping bridge numbers to function names and column names
+bridge_functions = Dict(
+    1 => (f1_IMJ_N45, :IMJ_N45),
+    2 => (f2_IMJ_90, :IMJ_90),
+    3 => (f3_IMJ_S45, :IMJ_S45),
+    4 => (f4_IEJ_90, :IEJ_90),
+    5 => (f5_OMJ_N45, :OMJ_N45),
+    6 => (f6_OEJ_90, :OEJ_90),
+    7 => (f7_OMJ_S45, :OMJ_S45),
+    8 => (f8_OMJ_90, :OMJ_90))
+
+symbols = [:TIME, bridge_functions[1][2], bridge_functions[2][2], bridge_functions[3][2], bridge_functions[4][2], bridge_functions[5][2], bridge_functions[6][2], bridge_functions[7][2], bridge_functions[8][2]]
+
+function fσ(data_OS_scene01_NS, bridgenum=[1, 2, 3, 4, 5, 6, 7, 8])
+    df = DataFrame(row_number=1:nrow(data_OS_scene01_NS))
+
+    for bridge in bridgenum
+        if haskey(bridge_functions, bridge)
+            func, col_name = bridge_functions[bridge]
+            df[!, col_name] = func.(data_OS_scene01_NS[!, col_name])
+        end
+    end
+    return df
+end
+
+function _plot(data_OS_scene01_NS, symbls=[:IMJ_90, :IMJ_S45, :IMJ_N45];
+    midrownum=0,
+    offset=0,
+    title="",
+    x1::Union{Int64,Nothing}=nothing,
+    x2::Union{Int64,Nothing}=nothing,
+    # marker=nothing,
+    # travel::Symbol,
+    # scene_num::Int64=0,
+    # railside=:oceanside,
+    # symbls_to_anotate::Union{Vector,Nothing}=nothing
+)
+
+    df = fσ(data_OS_scene01_NS)
+
+    if midrownum == 0
+        midrownum = (df[1, 1] + df[end, 1]) ÷ 2
+    end
+    if !isnothing(x1) && !isnothing(x2)
+        df = df[x1:x2, :]
+        if midrownum < x1 || midrownum > x2
+            midrownum = (x1 + x2) ÷ 2
+        end
+    elseif !isnothing(x1)
+        df = df[x1:end, :]
+        if midrownum < x1
+            midrownum = (x1 + size(df, 1)) ÷ 2
+        end
+    elseif !isnothing(x2)
+        df = df[1:x2, :]
+        if midrownum > x2
+            midrownum = (1 + x2) ÷ 2
+        end
+    else
+        midrownum = (1 + size(df, 1)) ÷ 2
+    end
+
+
+    p = plot()
+    # vres = []
+
+    for (i, symbl) in enumerate(symbls)
+        y = df[!, symbl]
+        x = df[!, 1] .+ ((i - 1) * offset)
+        # if isnothing(marker)
+        plot!(p, x, y, label="$symbl", titlefontsize=12, legendfontsize=6)
+        # else
+        #     plot!(p, x, y, label="$symbl", titlefontsize=12, legendfontsize=6, marker=marker)
+        # end
+
+        midrowidx = findfirst(x .>= midrownum)
+
+        s1, is1 = findmax(y[1:midrowidx])
+        s1min, is1min = findmin(y[1:midrowidx])
+
+        s2, is2 = findmax(y[midrowidx+1:end])
+        s2min, is2min = findmin(y[midrowidx+1:end])
+
+        # add annotation to plot
+        is2_actual = is2 + midrowidx
+        is2min_actual = is2min + midrowidx
+        _s1 = ustrip(MPa, s1) |> floorto
+        _s2 = ustrip(MPa, s2) |> floorto
+        _s1min = ustrip(MPa, s1min) |> floorto
+        _s2min = ustrip(MPa, s2min) |> floorto
+
+        anno = [(x[is1], _s1, text("$_s1", :left, 6, rotation=90)),
+            (x[is1min], _s1min, text("$_s1min", :left, 6, rotation=90)),
+            (x[is2_actual], _s2, text("$_s2", :left, 6, rotation=90)),
+            (x[is2min_actual], _s2min, text("$_s2min", :left, 6, rotation=90))]
+        annotate!(p, anno)  # add font size for annotation
+
+        # if isnothing(symbls_to_anotate)
+        #     annotate!(p, anno)  # add font size for annotation
+        # elseif symbl in symbls_to_anotate
+        #     annotate!(p, anno)  # add font size for annotation
+        # end
+
+
+        # Add dictionary with symbol and vratio
+        # push!(vres, Dict(:symbl => symbl, :s1 => s1, :s2 => s2, :travel => travel, :scenario => scene_num, :railside => railside))
+    end
+    title!(p, title)
+    ylabel!(p, "Stress")
+    return p
+end
+
+
+function combineplot(data_OS_scene01_NS, symbls=[:IMJ_90, :IMJ_S45, :IMJ_N45];
+    midrownum=0,
+    offset=0,
+    title="", x1=nothing, x2=nothing,
+    vx1::Vector{Int64},
+    vx2::Vector{Int64},
+    # travel::Symbol,
+    # scene_num::Int64=0,
+    # railside=:oceanside,
+    # symbls_to_anotate::Union{Vector,Nothing}=nothing
+)
+
+    l = @layout [a; b c]
+    x1 = isnothing(x1) ? nothing : x1
+    x2 = isnothing(x2) ? nothing : x2
+
+    pa = _plot(data_OS_scene01_NS, symbls;
+        title=title,
+        x1=x1,
+        x2=x2
+    )
+
+    pb = _plot(data_OS_scene01_NS, symbls;
+        x1=vx1[1],
+        x2=vx1[2]
+    )
+
+    pc = _plot(data_OS_scene01_NS, symbls;
+        x1=vx2[1],
+        x2=vx2[2]
+    )
+    return plot(pa, pb, pc, layout=l)
+end
+
+```
+
+```{julia}
+#| label: CSV FILE INPUT BLOCK
+#| echo: false
+#| output: false
+dir = @__DIR__
+filename = "\\xlsx\\OS_scene01_NS_BOTHWHEELS_JUL21.csv"
+filename2 = "\\xlsx\\OS_scene02_SN_BOTHWHEELS_JUL21.csv"
+filename3 = "\\xlsx\\OS_scene03_NS_BOTHWHEELS_JUL21.csv"
+filename4 = "\\xlsx\\OS_scene04_Sn_maxoperspeed_JUL21.csv"
+filename5 = "\\xlsx\\OS_scene05_NS_maxoperspeed_JUL21.csv"
+filename6 = "\\xlsx\\OS_scene06_SN_JUL20.csv"
+filename7 = "\\xlsx\\OS_scene07_NS_JUL20.csv"
+filename8 = "\\xlsx\\OS_scene08_SN_JUL20.csv"
+
+filename09 = "\\xlsx\\LS_scene09_NS_JUL21.csv"
+filename10 = "\\xlsx\\LS_scene10_SN_JUL21.csv"
+filename11 = "\\xlsx\\LS_scene11_NS_JUL21.csv"
+filename12 = "\\xlsx\\LS_scene12_SN_JUL21.csv"
+filename12_amr = "\\xlsx\\LS_scene12_SN_JUL21_amr.csv"
+filename13 = "\\xlsx\\LS_scene13NS_and_14SN_JUL21.csv"
+
+filepathname = dir * filename
+filepathname2 = dir * filename2
+filepathname3 = dir * filename3
+filepathname4 = dir * filename4
+filepathname5 = dir * filename5
+filepathname6 = dir * filename6
+filepathname7 = dir * filename7
+filepathname8 = dir * filename8
+
+# data_OS_scene01_NS = coalesce.(CSV.read(filepathname, DataFrame, normalizenames=true), 0.0)
+data_OS_scene01_NS = coalesce.(CSV.read(filepathname, DataFrame), 0.0)
+data_OS_scene02_SN = coalesce.(CSV.read(filepathname2, DataFrame), 0.0)
+data_OS_scene03_NS = coalesce.(CSV.read(filepathname3, DataFrame), 0.0)
+data_OS_scene04_SN = coalesce.(CSV.read(filepathname4, DataFrame), 0.0)
+data_OS_scene05_NS = coalesce.(CSV.read(filepathname5, DataFrame), 0.0)
+data_OS_scene06_SN = coalesce.(CSV.read(filepathname6, DataFrame), 0.0)
+data_OS_scene07_NS = coalesce.(CSV.read(filepathname7, DataFrame), 0.0)
+data_OS_scene08_SN = coalesce.(CSV.read(filepathname8, DataFrame), 0.0)
+
+data_LS_scene09_NS = coalesce.(CSV.read(dir * filename09, DataFrame), 0.0)
+data_LS_scene10_SN = coalesce.(CSV.read(dir * filename10, DataFrame), 0.0)
+data_LS_scene11_NS = coalesce.(CSV.read(dir * filename11, DataFrame), 0.0)
+data_LS_scene12_SN = coalesce.(CSV.read(dir * filename12, DataFrame), 0.0)
+data_LS_scene12_SN_amr = coalesce.(CSV.read(dir * filename12_amr, DataFrame), 0.0)
+data_LS_scene13NS_14SN = coalesce.(CSV.read(dir * filename13, DataFrame), 0.0)
+
+
+rename!(data_OS_scene01_NS, symbols)
+rename!(data_OS_scene02_SN, symbols)
+rename!(data_OS_scene03_NS, symbols)
+rename!(data_OS_scene04_SN, symbols)
+rename!(data_OS_scene05_NS, symbols)
+rename!(data_OS_scene06_SN, symbols)
+rename!(data_OS_scene07_NS, symbols)
+rename!(data_OS_scene08_SN, symbols)
+
+rename!(data_LS_scene09_NS, symbols)
+rename!(data_LS_scene10_SN, symbols)
+rename!(data_LS_scene11_NS, symbols)
+rename!(data_LS_scene12_SN, symbols)
+rename!(data_LS_scene12_SN_amr, symbols)
+rename!(data_LS_scene13NS_14SN, symbols)
+```
+
+```{julia}
+#| echo: false
+#| output: false
+
+vmid_stress_os = []
+vend_stress_os = []
+confidence_os_mj = []
+confidence_os_ej = []
+
+smax_mj_os = []
+smin_mj_os = []
+
+smax_ej_os = []
+smin_ej_os = []
+
+
+```
+
+{{< pagebreak >}}
+
+## Scene 1 (N-S, Jul 21, run 1)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 1 (Ocean side (MJ),  N-S, Jul 21, run 1)
+
+l = @layout [a; b c]
+
+pb = combineplot(data_OS_scene01_NS, [:IMJ_90, :IMJ_N45, :IMJ_S45, :OMJ_90, :OMJ_S45];
+    vx1=[465, 475],
+    vx2=[1100, 1120],
+    title="Scene 1 (Ocean side (MJ),  N-S, Jul 21, run 1)")
+
+
+push!(vmid_stress_os, (45 + 60)MPa / 2)
+push!(vmid_stress_os, (105 + 35)MPa / 2)
+push!(confidence_os_mj, :circle)
+push!(confidence_os_mj, :circle)
+
+push!(smax_mj_os, 60MPa)
+push!(smin_mj_os, -19MPa)
+push!(smax_mj_os, 105MPa)
+push!(smin_mj_os, -11MPa)
+
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 1 (Ocean side (EJ),  N-S, Jul 21, run 1)
+
+ejsymbls = [:IEJ_90, :OEJ_90]
+
+
+pb = combineplot(data_OS_scene01_NS, ejsymbls;
+    vx1=[620, 640],
+    vx2=[1285, 1295],
+    offset=10, title="Ocean side (EJ),  N-S, Jul 21, run 1")
+
+push!(vend_stress_os, (201 + 37)MPa / 2)
+push!(vend_stress_os, (189 + 148)MPa / 2)
+push!(confidence_os_ej, :circle)
+push!(confidence_os_ej, :circle)
+
+push!(smax_ej_os, 201MPa)
+push!(smin_ej_os, 0MPa)
+push!(smax_ej_os, 189MPa)
+push!(smin_ej_os, -47MPa)
+
+pb
+
+```
+
+{{< pagebreak >}}
+
+## Scene 2 (S-N, July 21, run 2)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 2 (Ocean side (MJ),  S-N, July 21, run 2)
+
+pb = combineplot(data_OS_scene02_SN, [:IMJ_90, :IMJ_N45, :IMJ_S45, :OMJ_S45,];
+    vx1=[690, 710],
+    vx2=[1330, 1340],
+    title="Ocean side (MJ),  S-N, July 21, run 2")
+
+# push!(vmid_stress_os, (59 + 24 + 26)MPa / 2)
+# push!(vmid_stress_os, (134 - 28 + 64)MPa / 2)
+# push!(confidence_os_mj, :x)
+# push!(confidence_os_mj, :x)
+
+pb
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 2 (Ocean side (EJ),  S-N, July 21, run 2)
+
+pb = combineplot(data_OS_scene02_SN, ejsymbls;
+    vx1=[510, 530],
+    vx2=[1170, 1180],
+    title="Ocean side (MJ),  S-N, July 21, run 2")
+push!(vend_stress_os, (257 + 57)MPa / 2)
+push!(vend_stress_os, (164 + 63)MPa / 2)
+
+push!(confidence_os_ej, :circle)
+push!(confidence_os_ej, :circle)
+
+
+push!(smax_ej_os, 257MPa)
+push!(smin_ej_os, 0MPa)
+push!(smax_ej_os, 164MPa)
+push!(smin_ej_os, -75MPa)
+
+pb
+```
+
+{{< pagebreak >}}
+
+## Scene 3 (N-S, July 21, run 3)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 3 (Ocean side (MJ),  N-S, July 21, run 3)
+#| label: fig-scene3
+
+pb = combineplot(data_OS_scene03_NS, [:IMJ_90, :IMJ_S45, :IMJ_N45, :OMJ_S45, :OMJ_90];
+    vx1=[1390, 1410],
+    vx2=[2820, 2840],
+    title="Ocean side (MJ),  N-S, July 21, run 3"
+)
+
+push!(vmid_stress_os, (63 + 58.0)MPa / 2)
+push!(vmid_stress_os, (108 + 35.0)MPa / 2)
+push!(confidence_os_mj, :circle)
+push!(confidence_os_mj, :circle)
+
+push!(smax_mj_os, 63MPa)
+push!(smin_mj_os, -16MPa)
+push!(smax_mj_os, 108MPa)
+push!(smin_mj_os, -9MPa)
+
+pb
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 3 (Ocean side (EJ),  N-S, July 21, run 3)
+
+pb = combineplot(data_OS_scene03_NS, ejsymbls;
+    vx1=[1900, 2000],
+    vx2=[4520, 4550],
+    title="Ocean side (EJ),  N-S, July 21, run 3")
+
+push!(vend_stress_os, (240 + 45.0)MPa / 2)
+push!(vend_stress_os, (197 + 154.0)MPa / 2)
+
+push!(confidence_os_ej, :circle)
+push!(confidence_os_ej, :circle)
+
+push!(smax_ej_os, 240MPa)
+push!(smin_ej_os, 0MPa)
+push!(smax_ej_os, 197MPa)
+push!(smin_ej_os, -48MPa)
+
+
+pb
+```
+
+{{< pagebreak >}}
+
+## Scene 4 (S-N, July 21, run 4, max operationalpeed)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 4 (Ocean side (MJ),  S-N, July 21, run 4)
+
+pb = combineplot(data_OS_scene04_SN, [:IMJ_90, :IMJ_S45, :IMJ_N45, :OMJ_S45];
+    vx1=[1100, 1120],
+    vx2=[1690, 1710],
+    title="Ocean side (MJ),  S-N, July 21, run 4")
+
+# push!(vmid_stress_os, (54 + 32 + 12)MPa / 2)
+# push!(vmid_stress_os, (98 + 12)MPa / 2)
+# push!(confidence_os_mj, :x)
+# push!(confidence_os_mj, :x)
+
+
+pb
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 4 (Ocean side (EJ),  S-N, July 21, run 4)
+
+pb = combineplot(data_OS_scene04_SN, ejsymbls;
+    vx1=[930, 950],
+    vx2=[1550, 1600],
+    title="Ocean side (EJ),  S-N, July 21, run 4")
+push!(vend_stress_os, (251 + 57)MPa / 2)
+push!(vend_stress_os, (164 + 105)MPa / 2)
+
+push!(confidence_os_ej, :circle)
+push!(confidence_os_ej, :circle)
+
+push!(smax_ej_os, 251MPa)
+push!(smin_ej_os, 0MPa)
+push!(smax_ej_os, 164MPa)
+push!(smin_ej_os, -16MPa)
+
+pb
+```
+
+{{< pagebreak >}}
+
+## Scene 5 (N-S, July 21, run 5, max operationalpeed)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 5 (Ocean side (MJ),  N-S, July 21, run 5)
+
+pb = combineplot(data_OS_scene05_NS, [:IMJ_90, :IMJ_S45, :IMJ_N45, :OMJ_S45];
+    vx1=[300, 315],
+    vx2=[880, 910],
+    title="Ocean side (MJ),  N-S, July 21, run 5")
+
+# push!(vmid_stress_os, (62 + 4 + 15)MPa / 2)
+# push!(vmid_stress_os, (103 + 0 + 44)MPa / 2)
+# push!(confidence_os_mj, :x)
+# push!(confidence_os_mj, :x)
+
+pb
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 5 (Ocean side (EJ),  N-S, July 21, run 5)
+
+pb = combineplot(data_OS_scene05_NS, ejsymbls;
+    vx1=[400, 430],
+    vx2=[1062, 1070],
+    title="Ocean side (MJ),  N-S, July 21, run 5")
+
+push!(vend_stress_os, (221 + 29.0)MPa / 2)
+push!(vend_stress_os, (177 + 149.0)MPa / 2)
+push!(confidence_os_ej, :circle)
+push!(confidence_os_ej, :circle)
+
+push!(smax_ej_os, 221MPa)
+push!(smin_ej_os, 0MPa)
+push!(smax_ej_os, 177MPa)
+push!(smin_ej_os, -44MPa)
+
+pb
+```
+
+{{< pagebreak >}}
+
+## Scene 6 (S-N, July 20, run 1)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 6 (Ocean side (MJ),  S-N, July 20, run 1)
+
+pb = combineplot(data_OS_scene06_SN, [:IMJ_90, :IMJ_S45, :IMJ_N45, :OMJ_S45, :OMJ_90];
+    vx1=[4200, 4220],
+    vx2=[4840, 4860],
+    title="Ocean side (MJ),  S-N, July 20, run 1")
+
+push!(vmid_stress_os, (69 + 84)MPa / 2)
+push!(vmid_stress_os, (128 - 39)MPa / 2)
+push!(confidence_os_mj, :circle)
+push!(confidence_os_mj, :circle)
+
+
+push!(smax_mj_os, 84MPa)
+push!(smin_mj_os, 0MPa)
+push!(smax_mj_os, 128MPa)
+push!(smin_mj_os, -5MPa)
+
+pb
+```
+
+{{< pagebreak >}}
+
+## Scene 7 (N-S, July 20, run 2)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 7 (Ocean side (MJ),  N-S, July 20, run 2)
+
+pb = combineplot(data_OS_scene07_NS, [:IMJ_90, :IMJ_S45, :IMJ_N45, :OMJ_S45, :OMJ_90];
+    vx1=[250, 265],
+    vx2=[855, 870],
+    title="Ocean side (MJ),  N-S, July 20, run 2")
+
+push!(vmid_stress_os, (52 + 46)MPa / 2)
+push!(vmid_stress_os, (120 + 29)MPa / 2)
+push!(confidence_os_mj, :circle)
+push!(confidence_os_mj, :circle)
+
+push!(smax_mj_os, 70MPa)
+push!(smin_mj_os, -0MPa)
+push!(smax_mj_os, 52MPa)
+push!(smin_mj_os, -19MPa)
+
+pb
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 7 (Ocean side (EJ),  N-S, July 20, run 2)
+
+pb = combineplot(data_OS_scene07_NS, ejsymbls;
+    vx1=[365, 380],
+    vx2=[1030, 1040],
+    title="Ocean side (EJ),  N-S, July 20, run 2")
+
+push!(vend_stress_os, (248 + 15)MPa / 2)
+push!(vend_stress_os, (159 + 136.0)MPa / 2)
+push!(confidence_os_ej, :circle)
+push!(confidence_os_ej, :circle)
+
+
+push!(smax_ej_os, 248MPa)
+push!(smin_ej_os, 0MPa)
+push!(smax_ej_os, 159MPa)
+push!(smin_ej_os, -52MPa)
+
+
+pb
+```
+
+{{< pagebreak >}}
+
+## Scene 8 (S-N, July 20, run 3)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 8 (Ocean side (MJ),  S-N, July 20, run 3)
+
+pb = combineplot(data_OS_scene08_SN, [:IMJ_90, :IMJ_S45, :IMJ_N45, :OMJ_S45];
+    x1=1000,
+    vx1=[1585, 1595],
+    vx2=[2295, 2310],
+    title="Ocean side (MJ),  S-N, July 20, run 3")
+
+# push!(vmid_stress_os, ((64 + 14 + 58)MPa / 2))
+# push!(vmid_stress_os, (-12 + 47 + 134)MPa / 2)
+# push!(confidence_os_mj, :x)
+# push!(confidence_os_mj, :x)
+
+pb
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 8 (Ocean side (EJ),  S-N, July 20, run 3)
+
+pb = combineplot(data_OS_scene08_SN, ejsymbls; x1=1000, x2=2500,
+    vx1=[1400, 1430],
+    vx2=[2070, 2090],
+    title="Ocean side (EJ),  S-N, July 20, run 3")
+
+push!(vend_stress_os, (285 + 16)MPa / 2)
+push!(vend_stress_os, (165 + 65)MPa / 2)
+push!(confidence_os_ej, :circle)
+push!(confidence_os_ej, :circle)
+
+push!(smax_ej_os, 285MPa)
+push!(smin_ej_os, 0MPa)
+push!(smax_ej_os, 165MPa)
+push!(smin_ej_os, -72MPa)
+
+
+pb
+```
+
+## Average Stresses, web section
+
+```{julia}
+x = 1:length(vmid_stress_os)
+p_avg_OCMJ = plot(title="Average Stress")
+plot!(p_avg_OCMJ, x, ustrip.(MPa, vmid_stress_os), label="mid_os", markershape=:star)
+
+x = 1:length(vend_stress_os)
+plot!(p_avg_OCMJ, x, ustrip.(MPa, vend_stress_os), label="end_os", markershape=:star)
+```
+
+## Max and Minimum surface stresses, Mid Joint
+
+```{julia}
+p_surf_mj = plot(title="Surface stresses, Mid Joint")
+
+x = 1:length(smax_mj_os)
+plot!(p_surf_mj, x, ustrip.(MPa, smax_mj_os), label="max_mj_os", marker=:star)
+
+x = 1:length(smin_mj_os)
+plot!(p_surf_mj, x, ustrip.(MPa, smin_mj_os), label="min_mj_os", marker=:star)
+
+```
+
+## Max and Minimum surface stresses, End Joint
+
+```{julia}
+p_surf_ej = plot(title="Surface stresses, End Joint")
+
+x = 1:length(smax_ej_os)
+plot!(p_surf_ej, x, ustrip.(MPa, smax_ej_os), label="max_ej_os", marker=:star)
+
+x = 1:length(smin_ej_os)
+plot!(p_surf_ej, x, ustrip.(MPa, smin_ej_os), label="min_ej_os", marker=:star)
+```
+
+{{< pagebreak >}}
+
+# Strain Data - Land side rail bar, mid point
+
+```{julia}
+#| echo: false
+#| output: false
+
+vmid_stress_ls = []
+vend_stress_ls = []
+confidence_ls_mj = []
+confidence_ls_ej = []
+
+smax_mj_ls = []
+smin_mj_ls = []
+smax_ej_ls = []
+smin_ej_ls = []
+
+```
+
+## Scene 9 (N-S, July 21, run 1)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 9 (Land side (MJ), N-S, July 21, run 1)
+
+pb = combineplot(data_LS_scene09_NS, [:IMJ_90, :IMJ_S45, :IMJ_N45, :OMJ_S45, :OMJ_90];
+    x2=1000,
+    vx1=[220, 230],
+    vx2=[775, 790],
+    title="Land side (MJ), N-S, July 21, run 1")
+
+push!(vmid_stress_ls, (81 + 25)MPa / 2)
+push!(vmid_stress_ls, (12 + 106)MPa / 2)
+push!(confidence_ls_mj, :circle)
+push!(confidence_ls_mj, :circle)
+
+push!(smax_mj_ls, 77MPa)
+push!(smin_mj_ls, -7MPa)
+push!(smax_mj_ls, 106MPa)
+push!(smin_mj_ls, -3MPa)
+
+pb
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 9 (Land side (EJ), N-S, July 21, run 1)
+
+pb = combineplot(data_LS_scene09_NS, ejsymbls;
+    # x1=700,
+    x2=1000,
+    vx1=[140, 150],
+    vx2=[700, 720],
+    title="Land side (EJ), N-S, July 21, run 1")
+push!(vend_stress_ls, (128 + 146)MPa / 2)
+push!(vend_stress_ls, (75 + 189)MPa / 2)
+
+push!(confidence_ls_ej, :circle)
+push!(confidence_ls_ej, :circle)
+
+push!(smax_ej_ls, 146MPa)
+push!(smin_ej_ls, -10MPa)
+push!(smax_ej_ls, 189MPa)
+push!(smin_ej_ls, -9MPa)
+
+
+pb
+```
+
+{{< pagebreak >}}
+
+## Scene 10 (S-N, July 21, run 2)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 10 (Land side (MJ), S-N, July 21, run 2)
+
+pb = combineplot(data_LS_scene10_SN, [:IMJ_90, :IMJ_S45, :IMJ_N45, :OMJ_S45, :OMJ_90];
+    vx1=[665, 680],
+    vx2=[1330, 1345],
+    title="Land side (MJ), S-N, July 21, run 2")
+
+push!(vmid_stress_ls, (129 - 0)MPa / 2)
+push!(vmid_stress_ls, (26 + 96)MPa / 2)
+
+push!(confidence_ls_mj, :circle)
+push!(confidence_ls_mj, :circle)
+
+push!(smax_mj_ls, 129MPa)
+push!(smin_mj_ls, -2MPa)
+push!(smax_mj_ls, 96MPa)
+push!(smin_mj_ls, -3MPa)
+
+pb
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 10 (Land side (EJ), S-N, July 21, run 2)
+
+pb = combineplot(data_LS_scene10_SN, ejsymbls;
+    vx1=[750, 800],
+    vx2=[1400, 1450],
+    title="Land side (EJ), S-N, July 21, run 2")
+
+# push!(vend_stress_ls, (85 + 12)MPa / 2)
+# push!(confidence_ls_ej, :circle)
+# push!(smax_ej_ls, 85MPa)
+# push!(smin_ej_ls, -41MPa)
+
+push!(vend_stress_ls, (5 + 202)MPa / 2)
+push!(confidence_ls_ej, :circle)
+push!(smax_ej_ls, 202MPa)
+push!(smin_ej_ls, -13MPa)
+
+pb
+```
+
+{{< pagebreak >}}
+
+## Scene 11 (N-S, July 21, run 3)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 11 (Land side (MJ), N-S, July 21, run 3)
+
+pb = combineplot(data_LS_scene11_NS, [:IMJ_90, :IMJ_S45, :IMJ_N45, :OMJ_S45];
+    vx1=[700, 720],
+    vx2=[1300, 1315],
+    title="Land side (MJ), N-S, July 21, run 3")
+# push!(vmid_stress_ls, (84 + 28 + 47)MPa / 2) 
+# push!(confidence_ls_mj, :x)
+
+pb
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 11 (Land side (EJ), N-S, July 21, run 3)
+
+pb = combineplot(data_LS_scene11_NS, ejsymbls;
+    vx1=[620, 635],
+    vx2=[1210, 1230],
+    title="Land side (EJ), N-S, July 21, run 3")
+push!(vend_stress_ls, (162 + 169)MPa / 2)
+push!(vend_stress_ls, (97 + 208)MPa / 2)
+push!(confidence_ls_ej, :circle)
+push!(confidence_ls_ej, :circle)
+
+push!(smax_ej_ls, 169MPa)
+push!(smin_ej_ls, -10MPa)
+push!(smax_ej_ls, 208MPa)
+push!(smin_ej_ls, -9MPa)
+pb
+```
+
+{{< pagebreak >}}
+
+## Scene 12 (S-N, July 21, run 4, max operational speed)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 12 (Land side(MJ), S-N, July 21, run 4) 
+#| label: fig-scene12
+
+pb = combineplot(data_LS_scene12_SN, [:IMJ_90, :IMJ_S45, :IMJ_N45, :OMJ_S45, :OMJ_90];
+    vx1=[1650, 1700],
+    vx2=[2820, 2850],
+    offset=40, title="Land side (MJ), S-N, July 21, run 4")
+
+push!(vmid_stress_ls, (127 + 0)MPa / 2)
+# push!(vmid_stress_ls, (92  + 25)MPa / 2)
+push!(confidence_ls_mj, :circle)
+push!(confidence_ls_mj, :circle)
+
+push!(smax_mj_ls, 127MPa)
+push!(smin_mj_ls, -3MPa)
+push!(smax_mj_ls, 92MPa)
+push!(smin_mj_ls, -3MPa)
+
+
+pb
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 12 (Land side (EJ), S-N, July 21, run 4)
+
+pb = combineplot(data_LS_scene12_SN, ejsymbls;
+    vx1=[1800, 1850],
+    vx2=[3600, 3640], title="Land side (EJ), S-N, July 21, run 4")
+push!(vend_stress_ls, (100 + 250)MPa / 2)
+push!(vend_stress_ls, (145 + 217)MPa / 2)
+
+push!(confidence_ls_ej, :circle)
+push!(confidence_ls_ej, :circle)
+
+push!(smax_ej_ls, 250MPa)
+push!(smin_ej_ls, 0MPa)
+push!(smax_ej_ls, 217MPa)
+push!(smin_ej_ls, -16MPa)
+
+
+
+pb
+```
+
+{{< pagebreak >}}
+
+## Scene 13 (N-S, July 21, run 5, first half of run, max operational speed)
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 13 (Land side (MJ), N-S, July 21, run 5, first half)
+
+pb = combineplot(data_LS_scene13NS_14SN, [:IMJ_90, :IMJ_S45, :IMJ_N45, :OMJ_S45];
+    x2=1000,
+    vx1=[315, 325],
+    vx2=[650, 670],
+    title="Land side (MJ), N-S, July 21, run 5, first half")
+
+# push!(vmid_stress_ls, (74 + 67 - 7)MPa / 2)
+# push!(confidence_ls_mj, :x)
+
+pb
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 13 (Land side (EJ), N-S, July 21, run 5, first half)
+
+pb = combineplot(data_LS_scene13NS_14SN, ejsymbls;
+    x2=1000,
+    vx1=[265, 280],
+    vx2=[605, 615],
+    title="Land side (EJ), N-S, July 21, run 5, first half")
+push!(vend_stress_ls, (-8 + 182)MPa / 2)
+push!(vend_stress_ls, (71 + 206)MPa / 2)
+push!(confidence_ls_ej, :circle)
+push!(confidence_ls_ej, :circle)
+
+
+push!(smax_ej_ls, 182MPa)
+push!(smin_ej_ls, -9MPa)
+push!(smax_ej_ls, 206MPa)
+push!(smin_ej_ls, -8MPa)
+
+
+pb
+```
+
+{{< pagebreak >}}
+
+## Scene 14 (S-N, July 21, run 5, second half, max operational speed )
+
+### Mid Joint (MJ)
+
+```{julia}
+#| fig-cap: Scene 14 (Land side (MJ), S-N, July 21, run 5, second half)
+
+pb = combineplot(data_LS_scene13NS_14SN, [:IMJ_90, :IMJ_S45, :IMJ_N45, :OMJ_S45];
+    x1=1000,
+    vx1=[1555, 1575],
+    vx2=[1880, 1900],
+    title="Land side (MJ), S-N, July 21, run 5, second half")
+
+# push!(vmid_stress_ls, (127 + 42 + 35)MPa / 2)
+# push!(vmid_stress_ls, (20 + 67 - 32)MPa / 2)  unclear
+# push!(confidence_ls_mj, :x)
+# push!(confidence_ls_mj, :x)
+
+pb
+```
+
+{{< pagebreak >}}
+
+### End Joint (EJ)
+
+```{julia}
+#| fig-cap: Scene 14 (Land side (EJ), S-N, July 21, run 5, second half)
+pb = combineplot(data_LS_scene13NS_14SN, ejsymbls;
+    x1=1000, x2=2100,
+    vx1=[1605, 1620],
+    vx2=[1935, 1945],
+    title="Land side (EJ), S-N, July 21, run 5, second half")
+push!(vend_stress_ls, (11 + 173)MPa / 2)
+push!(vend_stress_ls, (0 + 159)MPa / 2)
+push!(confidence_ls_ej, :circle)
+push!(confidence_ls_ej, :circle)
+
+
+push!(smax_ej_ls, 173MPa)
+push!(smin_ej_ls, 0MPa)
+push!(smax_ej_ls, 159MPa)
+push!(smin_ej_ls, -15MPa)
+
+pb
+```
+
+{{< pagebreak >}}
+
+## Average Stresses, web, MJ
+
+```{julia}
+x = 1:length(vmid_stress_ls)
+plot!(p_avg_OCMJ, x, ustrip.(MPa, vmid_stress_ls), label="mid_ls", markershape=:circle)
+x = 1:length(vend_stress_ls)
+plot!(p_avg_OCMJ, x, ustrip.(MPa, vend_stress_ls), label="end_ls", markershape=:circle)
+```
+
+```{julia}
+#| label: Max avg stress = 71MPa, stddev = 10MPa
+# Calculate average of vmid_stress_ls
+mean_savg_mj = mean(vcat(vmid_stress_ls, vmid_stress_os))
+stddev_savg_mj = std(vcat(vmid_stress_ls, vmid_stress_os), corrected=false)
+
+# Print the average value + 1 std deviation
+println("Average web section, mid joint vertical stress, σz = $(mean_savg_mj |> f2) plus std deviation of $(stddev_savg_mj|> f2) = $(mean_savg_mj+ stddev_savg_mj |> f2)")
+```
+
+## Average Stresses, web, EJ
+
+```{julia}
+#| label: Max avg stress = 165MPa, stddev = 28MPa
+
+# Calculate average of end joint stresses
+mean_savg_ej = mean(vcat(vend_stress_ls, vend_stress_os))
+stddev_savg_ej = std(vcat(vend_stress_ls, vend_stress_os), corrected=false)
+
+# Print the average value + 1 std deviation
+println("Average web section, end joint vertical stress, σz_avg = $(mean_savg_ej |> f2) plus std deviation of $(stddev_savg_ej |> f2) = $(mean_savg_ej + stddev_savg_ej |> f2)")
+```
+
+## Max and Minimum surface stresses, Mid Joint
+
+```{julia}
+# p_surf_mj = plot(title="Surface stresses, Mid Joint")
+
+x = 1:length(smax_mj_ls)
+plot!(p_surf_mj, x, ustrip.(MPa, smax_mj_ls), label="max_mj_ls", marker=:circle)
+
+x = 1:length(smin_mj_ls)
+plot!(p_surf_mj, x, ustrip.(MPa, smin_mj_ls), label="min_mj_ls", marker=:circle)
+```
+
+```{julia}
+#| echo: false
+
+# mean and std deviation, max surface stress
+mean_szmax_mj = mean(vcat(smax_mj_ls, smax_mj_os)) |> f2
+stddev_szmax_mj = std(vcat(smax_mj_ls, smax_mj_os), corrected=false) |> f2
+
+println("Maximum surface vertical stress, mid joint = $(mean_szmax_mj |> f2) plus std deviation of $(stddev_szmax_mj |> f2) = $(mean_szmax_mj + stddev_szmax_mj |> f2)")
+```
+
+```{julia}
+#| echo: false
+
+mean_szmin_mj = mean(vcat(smin_mj_ls, smin_mj_os)) |> f2
+stddev_szmin_mj = std(vcat(smin_mj_ls, smin_mj_os), corrected=false) |> f2
+
+println("Minium surface vertical stress, mid joint = $(mean_szmin_mj |> f2) plus std deviation of $(stddev_szmin_mj |> f2) = $(mean_szmin_mj - stddev_szmin_mj |> f2)")
+```
+
+## Max and Minimum surface stresses, End Joint
+
+```{julia}
+x = 1:length(smax_ej_ls)
+
+plot!(p_surf_ej, x, ustrip.(MPa, smax_ej_ls), label="max_ej_ls", markershape=:circle)
+
+x = 1:length(smin_ej_ls)
+plot!(p_surf_ej, x, ustrip.(MPa, smin_ej_ls), label="min_ej_ls", markershape=:circle)
+```
+
+```{julia}
+#| label: Maximum Surf stress = 237MPa, mean = 200MPa
+#| echo: false
+# mean and std deviation, max surface stress
+mean_szmax_ej = mean(vcat(smax_ej_ls, smax_ej_os)) |> f2
+stddev_szmax_ej = std(vcat(smax_ej_ls, smax_ej_os), corrected=false) |> f2
+
+println("Maximum surface vertical stress, end joint = $(mean_szmax_ej |> f2) plus std deviation of $(stddev_szmax_ej |> f2) = $(mean_szmax_ej + stddev_szmax_ej |> f2)")
+```
+
+```{julia}
+#| label: Min Surf stress = -41MPa, stddev = 23MPa
+#| echo: false
+
+mean_szmin_ej = mean(vcat(smin_ej_ls, smin_ej_os)) |> f2
+stddev_szmin_ej = std(vcat(smin_ej_ls, smin_ej_os), corrected=false) |> f2
+
+println("Minimum surface vertical stress, end joint = $(mean_szmin_ej |> f2) plus std deviation of $(stddev_szmin_ej |> f2) = $(mean_szmin_ej - stddev_szmin_ej |> f2)")
+```
+
+# RFEM calibration of wheel load {#sec-wheel_calibration}
+
+Calibration is carried out by back calculating the average through thickness stress at the centre of web, and comparing against the results of strain gauge measurement. This approach is expected to determine the vertical magnitude of the wheel load as it passes over the strain gauge.
+
+![RFEM overview model of midjoint, landside, simulation](images/rfem_sim/rfem_model_mj_sim.png){#fig-rfem-overview-midjoint-sim}
+
+![Closeup of rail in @fig-rfem-overview-midjoint-sim](images/rfem_sim/rfem_model_mj_sim-closeup.png)
+
+![RFEM overview model of end joint, landside simulation](images/rfem_sim/rfem_model_ej_sim.png){#fig-rfem-overview-endjoint-sim}
+
+![Closeup of rail in @fig-rfem-overview-endjoint-sim](images/rfem_sim/rfem_model_ej_sim-closeup.png)
+
+## Mid Joint stress results
+
+The average vertical stress at the mid joint from strain data is taken as the statistical mean + 1 standard deviation = `{julia} mean_savg_mj + stddev_savg_mj`. @fig-wheel_load_sim_mj shows the RFEM model simulation of the wheel load at the mid joint.
+
+![Mid joint stresses, reverse load simulation](images/rfem_sim/Wheel-load-sim-MJ-stresses.png){#fig-wheel_load_sim_mj}
+
+## End Joint stresses results
+
+The average vertical stress at the end joint from strain data is taken as the statistical mean + 1 standard deviation = `{julia} mean_savg_ej + stddev_savg_ej`.  @fig-wheel_load_sim_ej shows the RFEM model simulation of the wheel load at the end joint.
+
+![End joint stresses, reverse load simulation](images/rfem_sim/Wheel-load-sim-EJ-stresses.png){#fig-wheel_load_sim_ej}
+
+The reverse calculated load is
+
+```{julia}
+P_wheel_simulated = 115kN;
+```
+
+# Design Wheel Loads
+
+The as-new calculated dead load, including dynamic effects, would be
+
+```{julia}
+Pwheel_Gdyn = γdyn_ufat * Pwheel_Gnew
+```
+
+The dynamic factor for fatigue loading is used instead of ULS dynamic factor for direct comparison with the strain gauge data. The test was taken when the tripper is empty. The calibrated load shown in @sec-wheel_calibration has dynamic component as demonstrated in @fig-scene3 and @fig-scene12. The as-new calculated wheel load is less than the back calculated load of `{julia} P_wheel_simulated`. For code compliance, the design wheel load is taken as the greater of the two values, which is `{julia} max(Pwheel_Gdyn, P_wheel_simulated)`.
+
+For the purpose of fatigue assessment of the existing rail, a revised dynamic factor is to be used.
+
+```{julia}
+γdyn_fat_des = P_wheel_simulated / Pwheel_Gnew |> f2
+```
+
+The maximum design wheel load when its operating is
+
+```{julia}
+Pwheel_fatdes = γdyn_fat_des * (Pwheel_Qoper) |> f2
+```
+
+## rail and wheel data
+
+```{julia}
+Dwheel = 630mm  # for 31kg/m rail
+b_head = 63.5mm # nominal rail head width
+r_cr = 11mm # corner radius bet side rail and crown
+fyr = 420MPa # yield of rail material, assumed per comparison to known rails to AS1085.1
+E = 420MPa / 0.002  # table E3,  AS1085.1 RailwayTrack Materal
+```
+
+## Hertz contact area
+
+```{julia}
+b_TE = b_head - 4 / 3 * r_cr  # useable width per AS 1418.1-2002
+ν = 0.27
+Eeff = E / (2(1 - ν^2))
+
+# for a cylinder on a flat surface
+
+function avg_hertz_contact(F::Unitful.Quantity)
+    l = b_TE    # useful rail head width, ignore the convex curvature
+    # wheel radius
+    R = Dwheel / 2
+    # width along rail 
+    w = F / l
+    # hertz contact half-width
+    b = sqrt(8 * w * R / π / Eeff) |> mm
+    area = l * 2b                       # Contact area [m²]
+    p = F / area                  # Max pressure [Pa]
+    return (p=p |> MPa, area=area |> mm^2, b=b, l=l)
+end
+
+ph = avg_hertz_contact(Pwheel_fatdes)
+
+b_hertz = ph.b # halfwidth of contact patch
+b_patch = 2 * b_hertz
+```
+
+
+# Gantrail Design Guidance Check
+
+![](images/general/gantrail_root_dim.png)
+
+```{julia}
+twr = 15mm  # refer figure above
+b_contact = 63.5mm
+l_contact = 0.1 * b_contact + 2 * 35mm  # for 35mm, refer fig above
+
+σ = Pwheel_fatdes / b_contact / l_contact |> MPa
+```
+
+The load is less than the Gantrail limit of 130MPa, pass.
+
+# Review of 31kg/m rail design per AS5228.1-2021
+
+```{julia}
+
+p_L = 6.5MPa # taken for fu > 700MPaper Table 1 AS5228.1
+
+Pmax = Pwheel_fatdes
+Pmean = (Pwheel_Gnew + 2 * Pwheel_Qoper) / 3
+Pmax, Pmean
+```
+
+estimate wheel rotation per min
+
+```{julia}
+ω = 16m / (π * Dwheel) / minute |> minute^-1
+```
+
+```{julia}
+c1 = 1.11 # taken conservatively
+c2 = 0.80; # taken conservatively
+```
+
+It must be noted that 
+
+![](images/general/table-1-pl.png)
+
+![](images/general/table-2-c1.png)
+
+![](images/general/table-3-c2.png)
+
+Check number 1:
+
+```{julia}
+b = b_head - 2 * r_cr
+
+f = Pmax / b / Dwheel |> MPa
+f_allow = 1.9 * p_L
+
+f < f_allow ? "Design ratio = $(f/f_allow) less than 1.0, Pass" : "Design ratio = $(f/f_allow) > 1.0, Fail"
+```
+
+Check number 2:
+
+```{julia}
+f = Pmean / b / Dwheel |> MPa
+f_allow = p_L * c1 * c2 |> MPa
+
+f < f_allow ? "Design ratio = $(f/f_allow) less than 1.0, Pass" : "Design ratio = $(f/f_allow) > 1.0, Fail"
+```
+
+
+by inspection, the rail/wheel design is more than adequate.
+
+# Legacy Design per AS1418.1-2002, for purposes of determining remaining life{#sec-legacy-design}
+
+```{julia}
+# p_TS = 0.246kN / mm   # rail designation 30, table 7.20.6.4
+
+B_T = b_head
+B_TE = B_T - 4 / 3 * r_cr
+Fyt = fyr
+Cp = (Fyt / 400MPa)^2
+PTS = 0.0049kN / mm^2 * Dwheel * B_TE * Cp |> kN
+
+tripper_passes = 88000;  # the number of ship loader passes to date 
+
+Nxw = tripper_passes * 2 * 10  # assume design life is 2x to date
+CR = 20000 / Nxw^(2 / 3)
+PT = CR * PTS |> f2
+```
+
+by inspection, the permissible load is `{julia} PT` \> design load of `{julia} Pwheel_fatdes`, pass; even for 10x the current design life.
+
+![Table 7.20.6.4](images/general/table-7-20-6-4.png){width="450"}
+
+
+# Fatigue Damage Assessment, Existing rail (31 kg/m), from local web bending due to skewing/steering load
+
+For the existing rail, fatigue damage assessment is carried out to determine the current state of the rail and if available, the future life of the rail. Assessment is based on AS4100, and its commentary in conjunction with British Standard BS7608-1993 clause 3.4, where for non-welded member, the portion of the compressive stress in the stress range maybe reduced to 60% of the range from zero to maximum compressive stress to maximum tensile stress. A fatigue damage ratio of less than 1.0 is considered passing, otherwise failed given a particular stress range and number of cycles.
+
+
+```{julia}
+#| echo: false
+#| label: get_srange function
+#| output: false
+#| 
+function principal_stress(nx::Number, ny::Number, sxy::Number)
+    # Calculate average normal stress
+    σavg = (nx + ny) / 2
+
+    # Calculate radius of Mohr's circle
+    R = sqrt(((nx - ny) / 2)^2 + sxy^2)
+
+    # Calculate principal stresses
+    σ1 = σavg + R  # Maximum principal stress
+    σ2 = σavg - R  # Minimum principal stress
+
+    # Calculate principal angle in radians
+    θp = atan(2 * sxy, (nx - ny)) / 2 * 180 / π  # Convert to degrees
+
+    return (σ11=σ1, σ22=σ2, θp=θp)
+end
+
+function calculate_range(s11max, s11min)
+
+    if s11max ≤ 0.001 && s11min ≤ 0.001
+        return 0.0
+    else
+
+        vals = vcat(s11max, s11min)
+        # Find max positive value, or 0 if none exist
+        positive_vals = filter(x -> x > 0, vals)
+        st = isempty(positive_vals) ? 0 : maximum(positive_vals)
+
+        # Find min negative value, or 0 if none exist
+        negative_vals = filter(x -> x < 0, vals)
+        sc = isempty(negative_vals) ? 0 : minimum(negative_vals)
+
+        # Calculate range value
+        range_val = st - 0.6 * sc
+        return range_val
+    end
+
+end
+
+function get_srange(;
+    df_sigma,
+    solidnum=1,
+    surfnum=1,
+    xrange::Union{Tuple{Real,Real},Nothing}=nothing,
+    yrange::Union{Tuple{Real,Real},Nothing}=nothing,
+    _symbls=[:surfnum, :gridpoint, :X, :Y, :Z, :σx, :σy, :σz, :τxz, :τyz]
+)
+    dx = isnothing(xrange) ? (-Inf, Inf) : xrange
+    dy = isnothing(yrange) ? (-Inf, Inf) : yrange
+
+    vsmax = filter(x -> x.solidnum == solidnum &&
+                            x.surfnum == surfnum &&
+                            dx[1] ≤ x.X ≤ dx[2] &&
+                            dy[1] ≤ x.Y ≤ dy[2] &&
+                            x.MinMax == "max", df_sigma)[:, _symbls]
+
+    vsmin = filter(x -> x.solidnum == solidnum &&
+                            x.surfnum == surfnum &&
+                            dx[1] ≤ x.X ≤ dx[2] &&
+                            dy[1] ≤ x.Y ≤ dy[2] &&
+                            x.MinMax == "min", df_sigma)[:, _symbls]
+
+    vsrange = []
+    vsigma11 = []
+    vsigma22 = []
+    vθp = []
+
+    for i in 1:nrow(vsmax)
+        # get principal stresses, z-x
+        n1 = :σz
+        n2 = :σx
+        n12 = :τxz
+
+        sn1max = vsmax[i, n1]
+        sn2max = vsmax[i, n2]
+        sn12max = vsmax[i, n12]
+
+        sn1min = vsmin[i, n1]
+        sn2min = vsmin[i, n2]
+        sn12min = vsmin[i, n12]
+
+        s11max, s22max, θpmax = principal_stress(sn1max, sn2max, sn12max)
+        s11min, s22min, θpmin = principal_stress(sn1min, sn2min, sn12min)
+
+        sr1 = calculate_range(s11max, s11min)
+        sr2 = calculate_range(s22max, s22min)
+
+        # get principal stresses, y-z
+
+        n1 = :σz
+        n2 = :σy
+        n12 = :τyz
+
+        sn1max = vsmax[i, n1]
+        sn2max = vsmax[i, n2]
+        sn12max = vsmax[i, n12]
+
+        sn1min = vsmin[i, n1]
+        sn2min = vsmin[i, n2]
+        sn12min = vsmin[i, n12]
+
+        # get principal stresses, z-x
+        s11max, s22max, θpmax = principal_stress(sn1max, sn2max, sn12max)
+        s11min, s22min, θpmin = principal_stress(sn1min, sn2min, sn12min)
+
+        sr3 = calculate_range(s11max, s11min)
+        sr4 = calculate_range(s22max, s22min)
+
+        push!(vsrange, max(sr1, sr2, sr3, sr4))
+    end
+
+
+    rangemax, imax = findmax(vsrange)
+
+    # Add principal stresses to the output DataFrame
+    n1 = :σz
+    n2 = :σx
+    n12 = :τxz
+    s11max_zx, s22max_zx, θpmax_zx = principal_stress(vsmax[imax, n1], vsmax[imax, n2], vsmax[imax, n12])
+    s11min_zx, s22min_zx, θpmin_zx = principal_stress(vsmin[imax, n1], vsmin[imax, n2], vsmin[imax, n12])
+
+    n1 = :σz
+    n2 = :σy
+    n12 = :τyz
+    s11max_yz, s22max_yz, θpmax_yz = principal_stress(vsmax[imax, n1], vsmax[imax, n2], vsmax[imax, n12])
+    s11min_yz, s22min_yz, θpmin_yz = principal_stress(vsmin[imax, n1], vsmin[imax, n2], vsmin[imax, n12])
+
+
+    df = vcat(vsmax[imax:imax, :], vsmin[imax:imax, :])
+    df[!, :σ11yz] = [s11max_yz, s11min_yz]
+    df[!, :σ22yz] = [s22max_yz, s22min_yz]
+    df[!, :θpyz] = [θpmax_yz, θpmin_yz]
+
+    df[!, :σ11zx] = [s11max_zx, s11min_zx]
+    df[!, :σ22zx] = [s22max_zx, s22min_zx]
+    df[!, :θpzx] = [θpmax_zx, θpmin_zx]
+
+
+    return (rangemax=rangemax * MPa |> f2, df=df)
+end
+
+# srange, dF = get_srange(surfnum=13)
+```
+
+## End Joints
+
+### RFEM Model
+
+![Wheel load, no eccentricity](images/rfem_existing_design/wheel_load_no_ecc.png)
+
+![Wheel load, eccentric](images/rfem_existing_design/wheel_load_ecc.png)
+
+![Wheel load, Skewing/steering](images/rfem_existing_design/wheel_load_skew.png)
+
+![Vertical stress, $\sigma_z$](images/rfem_existing_design/srange_ej.png)
+
+### Web, lower root radius
+  
+```{julia}
+#| label: import csv EJ-existing
+
+dir = @__DIR__
+
+csv_file_solid_stresses_ej = dir * "\\xlsx\\25071-ST-CAL-0003_A-EJ-existing\\DS2 ! Solids ! Basic Stresses.csv"
+df_sigma_ej_existing = coalesce.(CSV.read(csv_file_solid_stresses_ej, DataFrame; header=2, skipto=3), 0.0)
+rename!(df_sigma_ej_existing, [:solidnum, :surfnum, :gridpoint, :X, :Y, :Z, :MinMax, :σx, :σy, :σz, :τyz, :τxz, :τxy, :loadcomb]);
+```
+
+Fatigue stresses,
+
+```{julia}
+# using mean stress + std deviation for 1st wheel
+# Δf1 = mean_szmax_ej + stddev_szmax_ej - (mean_szmin_ej - stddev_szmin_ej)
+Δf1, df = get_srange(df_sigma=df_sigma_ej_existing, surfnum=13)
+
+# assume the same wheel load for front and back wheels
+# Δf2 = abs(mean_szmax_ej - mean_szmin_ej)
+# Δf2 = (mean_szmax_ej - mean_szmin_ej) / (mean_szmax_ej + stddev_szmax_ej - (mean_szmin_ej - stddev_szmin_ej)) * Δf1
+Δf2 = Δf1
+
+cycle1 = tripper_passes  # 1st wheel
+cycle2 = tripper_passes  # 2nd wheel
+
+category = 160  # non-welded category
+
+tp = 11.7mm # flange plate thickness
+ϕ = 1.0  # strength factor, complies all in 11.1.5(a) to (d)
+γF = 1.1 # fatigue load factor per AS 4100
+# γ_scale_to_end = 198 / 166.0  # per RFEM model simulation
+
+vni = [cycle1, cycle2]
+vfi = γF * [Δf1, Δf2]
+res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+printlnstruct(res)
+```
+
+Crtical load/stresses:
+
+```{julia}
+println(df)
+```
+
+The accumulated fatigue damage is `{julia} res.r_damage` $\le$ 1.0, pass
+
+### Web, flat element
+
+Fatigue stresses,
+
+```{julia}
+# using mean stress + std deviation for 1st wheel
+# Δf1 = mean_szmax_ej + stddev_szmax_ej - (mean_szmin_ej - stddev_szmin_ej)
+Δf1, df = get_srange(df_sigma=df_sigma_ej_existing, surfnum=15)
+
+# assume the same wheel load for front and back wheels
+# Δf2 = abs(mean_szmax_ej - mean_szmin_ej)
+# Δf2 = (mean_szmax_ej - mean_szmin_ej) / (mean_szmax_ej + stddev_szmax_ej - (mean_szmin_ej - stddev_szmin_ej)) * Δf1
+Δf2 = Δf1
+
+
+cycle1 = tripper_passes  # 1st wheel
+cycle2 = tripper_passes  # 2nd wheel
+
+category = 160  # non-welded category
+
+tp = 11.7mm # flange plate thickness
+ϕ = 1.0  # strength factor, complies all in 11.1.5(a) to (d)
+γF = 1.1 # fatigue load factor per AS 4100
+# γ_scale_to_end = 198 / 166.0  # per RFEM model simulation
+
+vni = [cycle1, cycle2]
+vfi = γF * [Δf1, Δf2]
+res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+printlnstruct(res)
+```
+
+Crtical load/stresses:
+
+```{julia}
+println(df)
+```
+
+The accumulated fatigue damage is `{julia} res.r_damage` $\le$ 1.0, pass
+
+
+
+### Web, top root radius element
+
+Fatigue stresses,
+
+```{julia}
+# using mean stress + std deviation for 1st wheel
+# Δf1 = mean_szmax_ej + stddev_szmax_ej - (mean_szmin_ej - stddev_szmin_ej)
+Δf1, df = get_srange(df_sigma=df_sigma_ej_existing, surfnum=17)
+
+# assume the same wheel load for front and back wheels
+# Δf2 = abs(mean_szmax_ej - mean_szmin_ej)
+# Δf2 = (mean_szmax_ej - mean_szmin_ej) / (mean_szmax_ej + stddev_szmax_ej - (mean_szmin_ej - stddev_szmin_ej)) * Δf1
+Δf2 = Δf1
+
+years_to_future_life = 10  # years into the future from 88k passes
+Npasses_per_yr_future = 2490  # projected tripper passes per year
+
+cycle1 = tripper_passes + years_to_future_life * Npasses_per_yr_future  # 1st wheel
+cycle2 = tripper_passes + years_to_future_life * Npasses_per_yr_future  # 2nd wheel
+
+category = 160  # non-welded category
+
+tp = 11.7mm # flange plate thickness
+ϕ = 1.0  # strength factor, complies all in 11.1.5(a) to (d)
+γF = 1.1 # fatigue load factor per AS 4100
+# γ_scale_to_end = 198 / 166.0  # per RFEM model simulation
+
+vni = [cycle1, cycle2]
+vfi = γF * [Δf1, Δf2]
+res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+printlnstruct(res)
+```
+
+Crtical load/stresses:
+
+```{julia}
+vfi_ej_critical = vfi
+println(df)
+```
+
+The accumulated fatigue damage is `{julia} res.r_damage` $\le$ 1.0, pass
+
+
+
+
+
+## End Joint + 25mm
+
+### RFEM Model
+
+![Vertical stress, $\sigma_z$](images/rfem_existing_design/srange_ej%2B25.png)
+
+### Web, lower root radius
+
+```{julia}
+#| label: import csv of EJ+25-existing
+#| 
+csv_file_solid_stresses_ej_25 = dir * "\\xlsx\\25071-ST-CAL-0003_A-EJ+25-existing\\DS2 ! Solids ! Basic Stresses.csv"
+df_sigma_EJ_25_existing = coalesce.(CSV.read(csv_file_solid_stresses_ej_25, DataFrame; header=2, skipto=3), 0.0)
+rename!(df_sigma_EJ_25_existing, [:solidnum, :surfnum, :gridpoint, :X, :Y, :Z, :MinMax, :σx, :σy, :σz, :τyz, :τxz, :τxy, :loadcomb]);
+```
+
+Fatigue stresses,
+
+```{julia}
+# using mean stress + std deviation for 1st wheel
+# Δf1 = mean_szmax_ej + stddev_szmax_ej - (mean_szmin_ej - stddev_szmin_ej)
+
+Δf1, df = get_srange(df_sigma=df_sigma_EJ_25_existing, surfnum=13)
+# Δf1, df = get_srange(df_sigma=df_sigma_EJ_25_existing, surfnum=21 )
+
+# assume the same wheel load for front and back wheels
+Δf2 = Δf1
+# Δf2 = abs(mean_szmax_ej - mean_szmin_ej)
+# Δf2 = (mean_szmax_ej - mean_szmin_ej) / (mean_szmax_ej + stddev_szmax_ej - (mean_szmin_ej - stddev_szmin_ej)) * Δf1
+
+
+cycle1 = tripper_passes  # 1st wheel
+cycle2 = tripper_passes  # 2nd wheel
+
+category = 160  # non-welded category
+
+tp = 24mm # plate thickness
+ϕ = 1.0  # strength factor, complies all in 11.1.5(a) to (d)
+γF = 1.1 # fatigue load factor per AS 4100
+
+vni = [cycle1, cycle2]
+vfi = γF * [Δf1, Δf2]
+res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+printlnstruct(res)
+```
+
+Crtical load/stresses:
+
+```{julia}
+println(df)
+```
+
+The accumulated fatigue damage is `{julia} res.r_damage` $\le$ 1.0, pass
+
+Remaining life estimation
+
+```{julia}
+n_cycles_remaining = Int64(1.6tripper_passes)
+cycle1 = tripper_passes + n_cycles_remaining  # 1st wheel
+cycle2 = tripper_passes + n_cycles_remaining  # 2nd wheel
+
+category = 160  # non-welded category
+
+tp = 24mm # flange plate thickness
+ϕ = 1.0  # strength factor, complies all in 11.1.5(a) to (d)
+γF = 1.1 # fatigue load factor per AS 4100
+# γ_scale_to_end = 198 / 166.0  # per RFEM model simulation
+
+vni = [cycle1, cycle2]
+vfi = γF * [Δf1, Δf2]
+res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+printlnstruct(res)
+```
+
+### Web, flat element
+
+Fatigue stresses,
+
+```{julia}
+# using mean stress + std deviation for 1st wheel
+# Δf1 = mean_szmax_ej + stddev_szmax_ej - (mean_szmin_ej - stddev_szmin_ej)
+Δf1, df = get_srange(df_sigma=df_sigma_EJ_25_existing, surfnum=15)
+
+# assume the same wheel load for front and back wheels
+# Δf2 = abs(mean_szmax_ej - mean_szmin_ej)
+# Δf2 = (mean_szmax_ej - mean_szmin_ej) / (mean_szmax_ej + stddev_szmax_ej - (mean_szmin_ej - stddev_szmin_ej)) * Δf1
+Δf2 = Δf1
+
+
+cycle1 = tripper_passes  # 1st wheel
+cycle2 = tripper_passes  # 2nd wheel
+
+category = 160  # non-welded category
+
+tp = 11.7mm # flange plate thickness
+ϕ = 1.0  # strength factor, complies all in 11.1.5(a) to (d)
+γF = 1.1 # fatigue load factor per AS 4100
+# γ_scale_to_end = 198 / 166.0  # per RFEM model simulation
+
+vni = [cycle1, cycle2]
+vfi = γF * [Δf1, Δf2]
+res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+printlnstruct(res)
+```
+
+Crtical load/stresses:
+
+```{julia}
+println(df)
+```
+
+
+The accumulated fatigue damage is `{julia} res.r_damage` $\le$ 1.0, pass
+
+
+### Web, top root radius element
+
+Fatigue stresses,
+
+```{julia}
+# using mean stress + std deviation for 1st wheel
+# Δf1 = mean_szmax_ej + stddev_szmax_ej - (mean_szmin_ej - stddev_szmin_ej)
+Δf1, df = get_srange(df_sigma=df_sigma_EJ_25_existing, surfnum=17)
+
+# assume the same wheel load for front and back wheels
+# Δf2 = abs(mean_szmax_ej - mean_szmin_ej)
+# Δf2 = (mean_szmax_ej - mean_szmin_ej) / (mean_szmax_ej + stddev_szmax_ej - (mean_szmin_ej - stddev_szmin_ej)) * Δf1
+Δf2 = Δf1
+
+
+cycle1 = tripper_passes  # 1st wheel
+cycle2 = tripper_passes  # 2nd wheel
+
+category = 160  # non-welded category
+
+tp = 11.7mm # flange plate thickness
+ϕ = 1.0  # strength factor, complies all in 11.1.5(a) to (d)
+γF = 1.1 # fatigue load factor per AS 4100
+# γ_scale_to_end = 198 / 166.0  # per RFEM model simulation
+
+vni = [cycle1, cycle2]
+vfi = γF * [Δf1, Δf2]
+res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+printlnstruct(res)
+```
+
+Crtical load/stresses:
+
+```{julia}
+println(df)
+```
+
+The accumulated fatigue damage is `{julia} res.r_damage` $\le$ 1.0, pass
+
+
+## Mid Joints
+
+```{julia} 
+#| label: import csv of MJ-existing
+#| 
+csv_file_solid_stresses_mj = dir * "\\xlsx\\25071-ST-CAL-0003_A-MJ-existing\\DS2 ! Solids ! Basic Stresses.csv"
+df_sigma_mj_existing = coalesce.(CSV.read(csv_file_solid_stresses_mj, DataFrame; header=2, skipto=3), 0.0)
+rename!(df_sigma_mj_existing, [:solidnum, :surfnum, :gridpoint, :X, :Y, :Z, :MinMax, :σx, :σy, :σz, :τyz, :τxz, :τxy, :loadcomb]);
+```
+
+### RFEM model
+
+![Vertical stress, $\sigma_z$](images/rfem_existing_design/srange_mj.png)
+
+### Web, lower root radius
+
+```{julia}
+# using mean stress + std deviation for 1 wheel
+# Δf1 = mean_szmax_mj + stddev_szmax_mj - (mean_szmin_mj - stddev_szmin_mj)
+Δf1, df = get_srange(df_sigma=df_sigma_mj_existing, surfnum=13)
+
+# assume the same wheel load for front and back wheels
+# Δf2 = mean_szmax_mj - mean_szmin_mj
+Δf2 = Δf1
+
+cycle1 = tripper_passes  # 1st wheel
+cycle2 = tripper_passes  # 2nd wheel
+
+category = 160  # non-welded category
+
+tp = 11.7mm # flange plate thickness
+ϕ = 1.0  # strength factor, complies all in 11.1.5(a) to (d)
+γF = 1.1 # fatigue load factor per AS 4100
+
+vni = [cycle1, cycle2]
+vfi = γF * [Δf1, Δf2]
+res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+printlnstruct(res)
+```
+
+```{julia}
+println(df)
+```
+
+The accumulated fatigue damage is `{julia} res.r_damage` $\le$ 1.0, pass
+
+
+### Web, flat element
+
+```{julia}
+# using mean stress + std deviation for 1 wheel
+# Δf1 = mean_szmax_mj + stddev_szmax_mj - (mean_szmin_mj - stddev_szmin_mj)
+Δf1, df = get_srange(df_sigma=df_sigma_mj_existing, surfnum=15, xrange=(5941, 6049))
+
+# using mean stress for 1 wheel
+# Δf2 = mean_szmax_mj - mean_szmin_mj
+Δf2 = Δf1
+
+cycle1 = tripper_passes  # 1st wheel
+cycle2 = tripper_passes  # 2nd wheel
+
+category = 160  # non-welded category
+
+tp = 11.7mm # flange plate thickness
+ϕ = 1.0  # strength factor, complies all in 11.1.5(a) to (d)
+γF = 1.1 # fatigue load factor per AS 4100
+
+vni = [cycle1, cycle2]
+vfi = γF * [Δf1, Δf2]
+res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+printlnstruct(res)
+```
+
+```{julia}
+println(df)
+```
+
+The accumulated fatigue damage is `{julia} res.r_damage` $\le$ 1.0, pass
+
+
+### Web, top root radius element
+
+```{julia}
+# using mean stress + std deviation for 1 wheel
+# Δf1 = mean_szmax_mj + stddev_szmax_mj - (mean_szmin_mj - stddev_szmin_mj)
+Δf1, df = get_srange(df_sigma=df_sigma_mj_existing, surfnum=17, xrange=(5941, 6049))
+
+# using mean stress for 1 wheel
+# Δf2 = mean_szmax_mj - mean_szmin_mj
+Δf2 = Δf1
+
+cycle1 = tripper_passes  # 1st wheel
+cycle2 = tripper_passes  # 2nd wheel
+
+category = 160  # non-welded category
+
+tp = 11.7mm # flange plate thickness
+ϕ = 1.0  # strength factor, complies all in 11.1.5(a) to (d)
+γF = 1.1 # fatigue load factor per AS 4100
+
+vni = [cycle1, cycle2]
+vfi = γF * [Δf1, Δf2]
+res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+printlnstruct(res)
+```
+
+```{julia}
+println(df)
+```
+
+The accumulated fatigue damage is `{julia} res.r_damage` $\le$ 1.0, pass
+
+
+<!-- 
+
+## Rolling Contact Shakedown Map
+
+
+```{julia}
+#| label: pressure w/ or w/o ecc
+#| output: false
+#| echo: false
+area = 2 * b_hertz * b_head  # contact patch
+Ixx = 2 * b_hertz * b_head^3 / 12
+
+p_no_ecc, pmax, pmin = Pwheel_fatdes / ph.area .+ (Pwheel_fatdes * er_convex * b_head / 2 / Ixx) * [0, 1, -1] .|> MPa
+```
+
+
+```{julia}
+# ----------------------------------------------------------
+# PARAMETERS
+# ----------------------------------------------------------
+σy = fyr   # Pa, yield strength of rail steel (e.g., 900 MPa)
+npoints = 201;
+```
+
+```{julia}
+# ----------------------------------------------------------
+# DEFINE SHAKEDOWN BOUNDARIES
+# ----------------------------------------------------------
+x = range(0, 1.0; length=npoints) |> collect
+
+p0_norm_theor = 2.8 .* (1 .- x .^ 1.5)
+p0_norm_theor = clamp.(p0_norm_theor, 0, Inf)
+
+p0_norm_emp = 3.2 .* exp.(-1.6 .* x) .+ 0.15 .* (1 .- x)
+p0_norm_emp = clamp.(p0_norm_emp, 0, Inf);
+```
+
+```{julia}
+# ----------------------------------------------------------
+# SAMPLE OPERATING POINTS
+# ----------------------------------------------------------
+ops = DataFrame(
+    case=["No ecc", "With Eccentricity"],
+    pressure=[p_no_ecc, pmax],   # N per wheel
+    axle_load=[Pwheel_fatdes, Pwheel_fatdes],   # N per wheel
+    creepage=[0.01, 0.06],
+    mu=[0.15, 0.15]);
+```
+
+```{julia}
+Q_over_N = ops.mu
+p0_norm = ops.pressure ./ fyr
+```
+
+```{julia}
+# -----------------------------------------------------
+# ENERGY DISSIPATION (T·γ)
+# ----------------------------------------------------- 
+Pw = ops.axle_load
+Trac = ops.mu .* Pw
+wheel_radius = 630mm / 2
+rolling_distance = 2π * wheel_radius
+slip_distance = ops.creepage .* rolling_distance
+W_cycle = Trac .* slip_distance              # Energy per unit displacement [N]
+W_area = W_cycle ./ area .|> MJ / m^2                # Energy per area [J/m²]
+```
+
+```{julia}
+
+# Classification heuristic
+function classify(W::Quantity)
+    if upreferred(W / (0.1u"MJ/m^2")) < 1.0
+        return "Mild wear"
+    elseif upreferred(W / (1.0u"MJ/m^2")) < 1.0
+        return "RCF prone"
+    else
+        return "Severe wear"
+    end
+end
+
+```
+
+```{julia}
+regime = [classify(W) for W in W_area]
+```
+
+```{julia}
+#| echo: false
+# ----------------------------------------------------------
+# PLOT 1: SHAKEDOWN MAP
+# ----------------------------------------------------------
+p1 = plot(
+    x, p0_norm_theor,
+    label="Theoretical boundary",
+    linewidth=2,
+    color=:blue
+)
+
+
+plot!(x, p0_norm_emp,
+    label="Empirical boundary",
+    linewidth=2,
+    linestyle=:dash,
+    color=:red
+)
+
+
+scatter!(Q_over_N, p0_norm,
+    label=ops.case .* " (" .* regime .* ")",
+    marker=:circle,
+    markersize=7,
+    color=[:green :orange :purple]
+)
+
+
+xlabel!("Traction ratio Q/N (≈ μ)")
+ylabel!("Normalized mean contact pressure p₀/σᵧ")
+title!("Shakedown map")
+xlims!(0, 0.6)
+ylims!(0, maximum(p0_norm_emp) * 1.1)
+```
+
+ -->
+
+
+
+## Probability of failure analysis {#sec-probability-of-failure-analysis}
+
+This analysis explores the relationship between the number of applied fatigue cycles and the corresponding probability of failure (Pf). The methodology is built on the standard assumption that fatigue life, `N`, follows a log-normal distribution. This means the natural logarithm of life, `ln(N)`, is normally distributed with a mean `μ_ln` and a standard deviation `σ_ln`.
+
+Design S-N curves, such as those in AS 4100 and BS 7608, define a "design life" (`N_design`) for a given stress range. These curves are typically conservative, representing a low probability of failure. For instance, BS 7608-1993 bases its curves on the "mean minus two standard deviations" life, which corresponds to a z-score (`z0`) of -2.0 and a nominal probability of failure (Pf) of 2.3%. We assume the AS 4100 curves have a similar probabilistic basis.
+
+To evaluate the Pf for a different number of cycles (`N_target`), we introduce a cycle multiplier `F`, where `N_target = F * N_design`. By rearranging the fundamental z-score equation for a log-normal distribution, we can derive a direct relationship between this multiplier `F` and the z-score (`z_pf`) of the target probability:
+
+`F = exp(σ_ln * (z_pf - z0))`
+
+This allows us to calculate the increase in failure probability for any given increase in service life, or vice-versa.
+
+```{julia} 
+sigma_log10_values = [0.1821]  # std dev in log10(N), from Table 14 in BS 7608-1993, for class B
+Pf_targets = [2.3, 16, 31, 50] ./ 100.0  # target nominal probabilities of failure, refer Table 15, BS 7608-1993.
+z0 = -2.0  # z-score for the design curve, interpreted as -2*σ, σ=std deviation
+
+# Generate the results using a DataFrame comprehension for conciseness.
+rows = DataFrame(
+    let
+        sigma_ln = sigma_log10 * log(10)
+        z_pf = quantile(Normal(0, 1), Pf)
+        F = exp(sigma_ln * (z_pf - z0))
+        (
+            sigma_log10=sigma_log10,
+            sigma_ln=sigma_ln,
+            Pf=Pf,
+            z_pf=z_pf,
+            F_multiplier=F
+        )
+    end
+    for sigma_log10 in sigma_log10_values, Pf in Pf_targets
+)
+rows
+```
+
+```{julia}
+#| echo: false
+#| 
+# --- Plot Pf vs multiplier F for each sigma_log10 ---
+F_vals = range(0.5, stop=3.0, length=600)
+plt = plot(title="Pf vs cycle multiplier F", xlabel="Cycle multiplier F (N_target / N_design)", ylabel="Probability of failure Pf", legend=:topleft)
+
+for sigma_log10 in sigma_log10_values
+    sigma_ln = sigma_log10 * log(10)
+    # z_pf_vals from relation: z_pf = z0 + ln(F)/sigma_ln
+    #=
+    This equation is derived by rearranging the formula for the cycle multiplier `F`. The goal is to solve for the z-score `z_pf` given a multiplier `F`.
+
+    Starting from the relationship derived previously:
+    `F = exp(σ_ln * (z_pf - z0))`
+
+    1. Take the natural logarithm (`ln`) of both sides:
+       `ln(F) = σ_ln * (z_pf - z0)`
+
+    2. Divide both sides by `σ_ln`:
+       `ln(F) / σ_ln = z_pf - z0`
+
+    3. Add `z0` to both sides to isolate `z_pf`:
+       `z_pf = z0 + ln(F) / σ_ln`
+
+    This gives the z-score for each value of `F`, which can then be used to find the corresponding probability of failure, `Pf`.
+    =#
+    z_pf_vals = z0 .+ log.(F_vals) ./ sigma_ln
+
+    Pf_vals = cdf.(Normal(0, 1), z_pf_vals)
+    plot!(plt, F_vals, Pf_vals, label="σ_log10=$(sigma_log10)")
+end
+for p in Pf_targets
+    hline!(plt, [p], linestyle=:dash, label="Pf=$(p)")
+end
+
+# Embed the plot in notebook/canvas environments
+plt
+```
+
+```{julia}
+"""
+    get_F_from_Pf(Pf, sigma_log10, z0)
+
+Calculates the cycle multiplier `F` given a probability of failure `Pf`.
+
+# Arguments
+- `Pf`: The target probability of failure.
+- `sigma_log10`: The standard deviation of the number of cycles in log10 space.
+- `z0`: The z-score corresponding to the design curve (e.g., -2.0 for a mean - 2σ curve).
+
+# Returns
+- The cycle multiplier `F = N_target / N_design`.
+"""
+function get_F_from_Pf(Pf::Float64, sigma_log10::Float64, z0::Float64)
+    # Convert sigma from log10 space to natural log space
+    sigma_ln = sigma_log10 * log(10)
+
+    # Calculate the z-score for the given probability of failure
+    z_pf = quantile(Normal(0, 1), Pf)
+
+    # Invert the relationship to solve for F
+    # Original: z_pf = z0 + log(F) / sigma_ln
+    F = exp(sigma_ln * (z_pf - z0))
+
+    return F
+end
+```
+
+For a practical and reasonable change in risk, assume increasing risk to 2x and 5x from the safe design rules of AS4100.  The N_life multiplier F are
+
+```{julia}
+z0 = -2.0
+sigma_log10 = 0.20
+Pf_val = [2, 3, 4, 5] .* 0.023
+
+# Calculate F
+F_vals = [get_F_from_Pf(Pf, sigma_log10, z0) for Pf in Pf_val]
+```
+
+### Estimating the timeline for higher Pf
+
+```{julia}
+N_life_design = tripper_passes_reduced  # the design limit for end joints
+time_N_life_design = 40yrs
+
+timelines = DataFrame(
+    Probability_of_Failure_Pf=Pf_val, cyles_multiplier_F=F_vals, Remaining_time=time_N_life_design .* (F_vals .- 1.0)
+)
+
+```
+
+## Sanity Check of Pf using directly BS 7608
+
+```{julia}
+#| label: BS 7608 functions
+#| echo: false
+d = 2.0
+function calculate_fatigue_life_perBS7608(Sr::Real, d::Real)
+    # in ln(N) terms
+    # C0_ln = 15.36
+    C0_ln = 35.39
+    m_sn = 4.0
+    # σ_ln = 0.1821
+    σ_ln = 0.4194
+    # ln_N = C0_ln - σ_ln * d - m_sn * log10(Sr)
+    ln_N = C0_ln - σ_ln * d - m_sn * log(Sr)
+
+    # Solve for N by taking 10 to the power of the result
+    # N = 10^(ln_N)
+    N = exp(ln_N)
+
+    return N
+end
+```
+
+```{julia}
+Sr = ustrip.(MPa, maximum(vfi_ej_critical)) # critical stress range for critical end joint
+
+# calculate N life at Pf=2.3% and Pf=16%, corresponding to d=2 and d=1, respectively.
+N_life, N_target = calculate_fatigue_life_perBS7608(Sr, 2), calculate_fatigue_life_perBS7608(Sr, 1);
+
+# multiplier F for Pf = 16% from Pf=2.3% as basis.
+F_7608 = N_target / N_life
+```
+
+By inspection, the ratio of target design life with Pf=16% in AS4100 as discussed in @sec-probability-of-failure-analysis is comparable to BS 7608. Accept failure analysis results.
+
+
+# Space Gass Model of Main Girder (as new design)
+
+The rail is modelled as part of the girder by using links. THe link is rigid in the plane of the cross section of grider + rail, but free for translation in the plane of the web of the girder. The rail clips are assumed unable to transmit longitudinal forces.
+
+![Base stress, self weight + 0.4Qs](images/general/stress_range_case102.png){width="90%"}
+
+![Stress range, moving loads, fatigue stresses](images/general/stress_range_ML_SC1.png){width="90%"}
+
+![Weld actegory 71](images/general/category_71_transverse_weld.png){width="90%"}
+
+# Fatigue Assessment, Main Girder
+
+## Existing rail girder, midspan
+
+```{julia}
+Δf1 = max(93 + 5.8 - 6.2, 83 + 15.15 - 4.64)MPa # max stress range due to design wheels
+Δf2 = Δf1                # 2nd wheel
+cycle1 = tripper_passes  # assumed number of passes to date since commisioning, corresponding to stress range Δf1
+cycle2 = tripper_passes  # assumed wind cycling while the tripper is in teh crtical section
+
+category = 71  # midpsan, non-welded category
+tp = 16.0mm # flange plate thickness
+ϕ = 0.9  # strength factor, complies all in 11.1.5(a) to (d)
+γF = 1.1 # fatigue load factor
+
+vni = [cycle1, cycle2]
+vfi = γF * [Δf1, Δf2]
+
+res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+printlnstruct(res)
+```
+
+The accumulated fatigue damage is `{julia} res.r_damage` $\le$ 1.0, pass
+
+## Fatigue damage, existing rail girder, supported end
+
+```{julia}
+Δf1 = max(62 + 4, 76 - 6)MPa # max stress range due to design wheels
+Δf2 = Δf1
+
+vni = [cycle1, cycle2]
+vfi = γF * [Δf1, Δf2]
+
+res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+printlnstruct(res)
+```
+
+The accumulated fatigue damage is `{julia} res.r_damage` $\le$ 1.0, pass
+
+
+# Summary of Findings of Fatigue Assessment of Existing 31kg rail
+
+- For the internal section of the rail, the accumulated fatigue damage is about 5%, in other words, for all intents and purposes, it has infinite life remaining.
+- For the end section of the rail, the critical section is at the root radius under the head
+
+    - where the fatigue damage has reached 100%.
+    - and the design life is reduced to about 114000 cycles
+
+- For the section, where the load is 25mm from the end joint
+
+    - the critical section is the root radius at the foot of the rail
+    - and the accumulated fatigue damage is about 38%, which means it still has capacity for another 1.6x life cycles to date.
+
+{{< pagebreak >}}
+
+# Appendix A - Site Informations{-}
+
+{{< pagebreak >}}
+
+```{=latex}
+\includepdf[pages=-, landscape]{pdf-to-embed/appendix_a.pdf}
+``` 
+
+# Appendix B - Strain Gauge Locations{-}
+
+{{< pagebreak >}}
+
+```{=latex}
+\includepdf[pages=-, landscape]{pdf-to-embed/appendix_b_strain_gauge_locations.pdf}
+``` 

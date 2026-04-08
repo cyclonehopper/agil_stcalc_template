@@ -1,0 +1,673 @@
+---
+execute: 
+  cache: true
+julia: 
+  exeflags: ["--project=@."]
+mainfont: Lato
+fontsize: 11pt
+format:
+  pdf:
+    pdf-engine: lualatex
+    number-sections: true 
+    include-in-header: julia/header.tex
+    filters:
+      - julia/revision-filter.lua
+    monofont: Julia Mono
+    monofontoptions: "Scale=0.75"
+    papersize: A4
+header-includes:
+  - \def\companyName{Agilitus}
+  - \def\logoCompany{C:/Users/Josua/Juliarepo/agilitex_header/images/logo-agilitus.png}
+  - \def\client{IPL Phosphate Hill}
+  - \def\logoClient{images/logo-apo.png}
+  - \def\projNo{25071}
+  - \def\projTitle{APO C325 Tripper Rail Repair Design}
+  - \def\calcNumber{25071-ST-CAL-0006}
+  - \def\calcTitle{Corroded Girder Strengthening}
+  - \def\projPhase{Detailed Design} 
+revisions:
+  - revNo: A
+    revDate: 22/09/25
+    revDesc: IFIR
+    revAuthor: Josua A.
+    revCheck: F. Hakim
+    revApp: 
+---
+
+```{=latex}
+\coverpageHeader{Calculation Objective / Scope}
+```
+
+- Provide design of strengthening of the girder, depending on the extent of corrosion loss
+- Corrosion loss to be assumed in terms of percentage of thickness loss.
+- Provide table of allowable corrosion loss vs section segment.
+- provide stiffener plate repair for section segment where corrosion loss exceeds the limit
+
+
+```{=latex}
+\coverpageHeader{Calculation Assumptions} 
+```
+
+- Grade of steel is 250, from Aust250 space gass library, applicable for the time where the steel was fabricated.
+
+
+```{=latex}
+\coverpageHeader{References} 
+```
+
+1. 25071-ST-CAL-0001 - Tripper Load Calculations
+2. 25071-ST-CAL-0003 - Check Existing Rails
+3. 25071-ST-CAL-0004 - Stub Replacement Design
+4. Existing drawings
+
+```{=latex}
+\coverpageHeader{Software Used} 
+```
+
+* Space Gass 
+
+```{=latex}
+\coverpageHeader{Holds} 
+``` 
+
+* n/a 
+
+
+{{< pagebreak >}}
+
+<!-- add TOC using latex -->
+```{=latex}
+\tableofcontents
+```
+
+{{< pagebreak >}}
+
+
+# Introduction {#sec-intro}
+
+The existing tripper rail is to be scheduled for replacement.  It is envisioned that the girder is potentialy corroded and the client would like to know how to deal with it if hte extent of corrosion becomes detrimental to the performance of the tripper. Hence, the existing tripper rail girder is to be assesed how much corrosion loss can be tolerated without strentghening, and a standard repair procedure is to be drafted in case it needs repair.
+
+## Basis of Design
+
+In general, design is in accordance with AS 4100 for steel.
+
+## Design Standards and Codes
+
+Unless specifically noted, the design complies with Australian Standards and selected international standards as listed in the Design Criteria. The following summarizes the key standards used in producing this calculation:
+
+-   AS 1170.0 - 2002 Structural design actions - Part 0: General principles
+-   AS 1170.1 - 2002 Structural design actions - Part 1: Permanent, imposed and other actions
+-   AS 1170.2 - 2021 Structural design actions - Part 2: Wind actions
+-   AS 4100 - 1998 Steel structures
+
+## Existing Drawings
+
+- 664-4-5082
+
+
+# Methodology
+
+SG model is created to model the structure and the moving loads. Section and member design to be done manually due to required iterative nature. For simplicity, design actions are derived from a model with as-new girder section size. This will result in slightly higher forces due to higher stiffnes compared to corroded section, since the model is ran as nonlinear analysis in spacegass. 
+
+For deflection check, a corroded model is created.
+
+
+```{julia}
+#| label: using pkg
+#| echo: false
+#| output: false
+using Pkg
+Pkg.activate(".")
+```
+
+```{julia}
+#| echo: false
+#| output: false
+using Unitful, Unitful.DefaultSymbols, DataFrames, Interpolations, Revise
+```
+
+```{julia}
+#| echo: false
+#| output: false
+# PackageSpec(path=raw"C:\\Users\\Josua\\Juliarepo\\MyUnits/") 
+using MyUnits, MyHelper, AS4100, MaterialModule
+``` 
+
+# Loads
+
+For load calculations, refer 25071-ST-CAL-0003.
+
+## Wheel load, fatigue check
+
+From 25071-ST-CAL-0003, the wheel load is 124kN.  
+
+![Fatigue wheel load, pos 59 of moving load](images/load_moving_fat760.png)
+
+
+## Wheel load, ULS
+
+This fatigue wheel load includes dynamic factor for fatigue.  From 4.4 of 25071-ST-CAL-0003, the calculated dynamic factor for fatigue is 
+
+```{julia}
+γdyn_ufat = 1.132;  # dynamic factor for fatigue, AS 5100.
+Pwheel_unfactored = 124kN / γdyn_ufat  # will be primary wheel load for ULS design
+```
+
+However as shown in 4.2.3 "Operating material load, with operating wind" of 25071-ST-CAL-0003, the maximum wheel load under operating material and operating wind is 118kN.  This will be used for ULS design.
+
+The dynamic factor for ULS, AS5100
+
+```{julia}
+γdyn_uls = 1 + (γdyn_ufat - 1) * 2 |> f2
+```
+
+![ULS moving load, pos 59; including dynamic factor = `{julia} γdyn_uls` and load factor = 1.5](images/load_moving_uls660.png)
+
+## Wheel load, deflection check
+
+![Moving load case 360, pos 59](images/load_moving_def460.png)
+
+
+# ULS design for corrosion allowance
+
+## Design actions from SG model
+
+Refer SG model "25071stcal06_girder_asnew.sg", load cases 601-699.
+
+![Design moment, ULS](images/uls_moment.png){width=90%}
+
+```{julia}
+#| echo: false
+#| output: false
+filename = "\\xlsx\\design_forces.xlsx"
+dir = @__DIR__
+filepathname_uls = dir * filename
+```
+
+## Flange: 0-3.0m from midspan, CA = 4.5mm (27%)
+
+design forces from space gass results file
+
+```{julia}
+vFd8uls = fgetsupermemberforces_SG(filepathname_uls, memb_list=[8]);
+```
+
+Member definitions, inlcuding corrosion allowance
+
+```{julia}
+ca = 4.5mm # corrosion allwable, after several iterations
+D = 677.9mm - 2 * ca
+B = 253.0mm
+tf = 16.2mm - ca
+tw = 11.7mm - ca
+rr = 15.2mm
+gr = ASNZS3678_250(tf)
+sec_girder = Ibeam(D, B, tf, tw, rr, gr, "HR");
+
+# define member design parameters
+Lmemb = 3.0m
+memb_girder = IMember(sec_girder, Lmemb; ky=1.0, kz=1.0, kLebt=1.4, kLebb=1.0);
+
+res = [fr_combined(memb_girder, Fd, x=tx) for tx in 0.0m:0.1m:3.0m for Fd in vFd8uls]
+vr = [t.r for t in res]
+r, ir = findmax(vr)
+println(res[ir].calc_details)
+```
+
+
+## Flange: 3m-4.5m from midspan, CA = 6.5mm
+
+design forces from space gass results file
+
+```{julia}
+vFd9uls = fgetsupermemberforces_SG(filepathname_uls, memb_list=[9]);
+```
+
+
+Member definitions, inlcuding corrosion allowance
+
+```{julia}
+ca = (6.5 + 6.5)mm / 2 # corrosion allwable, after several iteration 
+D = 677.9mm - 2 * ca
+B = 253.0mm
+tf = 16.2mm - ca
+tw = 11.7mm - ca
+rr = 15.2mm
+gr = ASNZS3678_250(tf)
+
+sec_girder = Ibeam(D, B, tf, tw, rr, gr, "HR")
+
+# define member design parameters
+Lmemb = 3.0m
+memb_girder = IMember(sec_girder, Lmemb; ky=1.0, kz=1.0, kLebt=1.4, kLebb=1.0)
+
+res = [fr_combined(memb_girder, Fd, x=tx) for Fd in vFd9uls for tx in 0.1m:0.1m:1.5m]
+vr = [t.r for t in res]
+r, ir = findmax(vr)
+println(res[ir].calc_details)
+``` 
+
+
+## Flange: 4.6m-6.0m from midspan, CA = 6.2mm (38%)
+
+Member definitions, inlcuding corrosion allowance
+
+```{julia}
+ca = (6.2 + 6.2)mm / 2 # corrosion allwable, after several iteration 
+D = 677.9mm - 2 * ca
+B = 253.0mm
+tf = 16.2mm - ca
+tw = 11.7mm - ca
+rr = 15.2mm
+gr = ASNZS3678_250(tf)
+
+sec_girder = Ibeam(D, B, tf, tw, rr, gr, "HR")
+
+# define member design parameters
+Lmemb = 3.0m
+memb_girder = IMember(sec_girder, Lmemb; ky=1.0, kz=1.0, kLebt=1.4, kLebb=1.0)
+
+res = [fr_combined(memb_girder, Fd, x=tx) for Fd in vFd9uls for tx in 1.51m:0.1m:3.0m]
+vr = [t.r for t in res]
+r, ir = findmax(vr)
+println(res[ir].calc_details)
+```
+
+## Web
+
+### shear capacity, zone 1 (0-3m from midspan, B/S), CA = 6mm
+
+```{julia}
+vFd_12m = fgetsupermemberforces_SG(filepathname_uls, memb_list=[2, 7, 8, 9]);
+```
+
+```{julia}
+ca = 6mm # corrosion allwable, after several iteration 
+
+D = 677.9mm - 2 * ca
+B = 253.0mm
+tf = 16.2mm - ca
+tw = 11.7mm - ca
+rr = 15.2mm
+gr = ASNZS3678_250(tf)
+
+sec_girder = Ibeam(D, B, tf, tw, rr, gr, "HR")
+
+
+res = [fr_shear(sec_girder, Fd, x=tx) for Fd in vFd_12m for tx in 3.1m:0.1m:8.1m]
+vr = [t.r for t in res]
+r, ir = findmax(vr)
+println(res[ir].calc_details)
+
+```
+
+### shear capacity, zone 2 (3-6m from midspan, B/S), CA = 5.7mm (48%)
+
+
+```{julia}
+ca = 5.7mm  # corrosion allwable, after several iteration 
+
+D = 677.9mm - 2 * ca
+B = 253.0mm
+tf = 16.2mm - ca
+tw = 11.7mm - ca
+rr = 15.2mm
+gr = ASNZS3678_250(tf)
+
+sec_girder = Ibeam(D, B, tf, tw, rr, gr, "HR")
+
+res = [fr_shear(sec_girder, Fd, x=tx) for Fd in vFd_12m for tx in 9.1m:0.1m:12.0m]
+vr = [t.r for t in res]
+r, ir = findmax(vr)
+println(res[ir].calc_details)
+```
+
+## SG model of corroded model, where no overplate is required (repair type A only)
+
+Refer SG model "25071stcal06_girder_CORRODED.SG"
+
+### Design load ratio
+
+![Design load ratio > 1.0 Pass](images/design_ratio_corroded.png)
+
+### Deflection 
+
+the deflection is 12000 / 14 = 850 > 500, PASS
+
+![Max deflection is 12000 / 14 = 850 > 500, PASS](images/def_corroded.png){width=90%}
+
+# Fatigue design for corrosion allowance{#sec-fatigue-corroded}
+
+## Design actions from sg model
+
+Refer sg model "25071stcal06_girder_asnew.sg", load cases 801-899
+
+<!-- ![Axial force and Moment diagram, self weight](images/fat_moment_selfweight.png){width=90%} -->
+
+![Moment diagram, operating + moving load](images/fat_moment_mid.png){width=90%}
+
+<!-- ![Axial force diagram, operating + moving load](images/fat_axial_mid.png){width=90%} -->
+
+## Zone 1 (0-3m from midspan), CA = 2.5mm (15%)
+
+```{julia}
+#| label: read file for fatigue analysis
+#| output: false
+filename = "\\xlsx\\design_forces_fat.xlsx"
+dir = @__DIR__
+filepathnamefat = dir * filename
+
+vFfat8 = fgetsupermemberforces_SG(filepathnamefat; memb_list=[8, 9], cases_to_include=collect(801:899))
+Ffat8_self = fgetsupermemberforces_SG(filepathnamefat; memb_list=[8, 9], cases_to_include=[102])[1];
+```
+
+
+```{julia}
+Ncyles_to_date = 88000
+
+life_future = 50 # years
+cycles_per_yr_future = 2490  # trip passes
+Ncyles_to_future = cycles_per_yr_future * life_future
+```
+
+
+Member definitions, including corrosion allowance
+
+```{julia}
+D = 677.9mm
+B = 253.0mm
+tf = 16.2mm
+tw = 11.7mm
+rr = 15.2mm
+gr = ASNZS3678_250(tf)
+sec_girder = Ibeam(D, B, tf, tw, rr, gr, "HR");
+
+ca = 2.43mm # corrosion allwable, after several iterations
+Dc = 677.9mm
+Bc = 253.0mm
+tfc = 16.2mm - ca
+twc = 11.7mm - ca
+rrc = 15.2mm
+gr = ASNZS3678_250(tf)
+sec_girder_c = Ibeam(Dc, Bc, tfc, twc, rrc, gr, "HR");
+
+# get stress range
+xrange = 0.0m:0.15m:3.0m
+vr_total = []
+vres = []
+for xt in xrange
+    # xt=0.3m
+    vΔf = []
+    vΔf_c = []
+
+    for i in eachindex(vFfat8)
+        push!(vΔf, fgetcombinedstress(sec_girder, vFfat8[i], xt))
+        push!(vΔf_c, fgetcombinedstress(sec_girder_c, vFfat8[i], xt))
+    end
+
+    Δf = maximum(vΔf) - minimum(vΔf)
+    Δf_c = maximum(vΔf_c) - minimum(vΔf_c)
+    # println(Δf)
+
+    category = 71  # midpsan, welded with transverse stiffeners
+    tp = tf # flange plate thickness
+    ϕ = 0.95  # strength factor, complies all in 11.1.5(a) to (d)
+    γF = 1.1 # fatigue load factor
+
+    # max stress range due to normal operating
+    Δf1 = Δf
+    Δf2 = Δf1
+
+    Δf1_c = Δf_c
+    Δf2_c = Δf1_c
+
+    vni = [Ncyles_to_date, Ncyles_to_date]
+    vni_c = [Ncyles_to_future, Ncyles_to_future]
+
+    vfi = γF * [Δf1, Δf2]
+    vfi_c = γF * [Δf1_c, Δf2_c]
+
+    res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+    res_c = ffatigue_damage_ratio(category, tp, vni, vfi_c, ϕ; r_damage_preexisting=res.r_damage)
+
+    # push!(vres, res)
+    push!(vres, res_c)
+end
+r_max_damage, irmax = findmax([t.r_damage for t in vres])
+printlnstruct(vres[irmax])
+```
+
+```{julia}
+#| echo: false
+#| output: false 
+```
+
+## Zone 2 (3-6m from midspan), CA = 5.5mm (30%)
+
+Member definitions, including corrosion allowance
+
+```{julia}
+D = 677.9mm
+B = 253.0mm
+tf = 16.2mm
+tw = 11.7mm
+rr = 15.2mm
+gr = ASNZS3678_250(tf)
+sec_girder = Ibeam(D, B, tf, tw, rr, gr, "HR");
+
+ca = 5.5mm # corrosion allwable, after several iterations
+Dc = 677.9mm
+Bc = 253.0mm
+tfc = 16.2mm - ca
+twc = 11.7mm - ca
+rrc = 15.2mm
+gr = ASNZS3678_250(tf)
+sec_girder_c = Ibeam(Dc, Bc, tfc, twc, rrc, gr, "HR");
+
+# get stress range
+xrange = 3.1m:0.15m:6.0m
+vr_total = []
+vres = []
+for xt in xrange
+    # xt=0.3m
+    vΔf = []
+    vΔf_c = []
+
+    for i in eachindex(vFfat8)
+        push!(vΔf, fgetcombinedstress(sec_girder, vFfat8[i], xt))
+        push!(vΔf_c, fgetcombinedstress(sec_girder_c, vFfat8[i], xt))
+    end
+
+    Δf = maximum(vΔf) - minimum(vΔf)
+    Δf_c = maximum(vΔf_c) - minimum(vΔf_c)
+    # println(Δf)
+
+    category = 71  # midpsan, welded with transverse stiffeners
+    tp = tf # flange plate thickness
+    ϕ = 0.95  # strength factor, complies all in 11.1.5(a) to (d)
+    γF = 1.1 # fatigue load factor
+
+    # max stress range due to normal operating
+    Δf1 = Δf
+    Δf2 = Δf1
+
+    Δf1_c = Δf_c
+    Δf2_c = Δf1_c
+
+    vni = [Ncyles_to_date, Ncyles_to_date]
+    vni_c = [Ncyles_to_future, Ncyles_to_future]
+
+    vfi = γF * [Δf1, Δf2]
+    vfi_c = γF * [Δf1_c, Δf2_c]
+
+    res = ffatigue_damage_ratio(category, tp, vni, vfi, ϕ)
+    res_c = ffatigue_damage_ratio(category, tp, vni, vfi_c, ϕ; r_damage_preexisting=res.r_damage)
+
+    # push!(vres, res)
+    push!(vres, res_c)
+end
+r_max_damage, irmax = findmax([t.r_damage for t in vres])
+printlnstruct(vres[irmax])
+```
+
+```{julia}
+#| echo: false
+#| output: false 
+```
+
+
+# Summary of Corrosion Allowances by ULS and Fatigue Analysis
+
+- zone 1 corrosion loss limits:
+
+  - By fatigue limits, 2.5mm (15%)
+  - By ULS limits, 4.5mm (27%)
+
+- Zone 2 corrosion loss limits:
+
+  - By fatigue limits, 5.5mm (30%)
+  - By ULS limits, 6.2 (38%)
+
+# Design of repair details in case corrosion exceeds allowable limts
+
+Repair details are based on ULS limits as it is the governing condition for thickness design as demonstrated in @sec-fatigue-corroded.  Repair design is based on maximum thickness loss of 50%, otherwise, repair shall be referred to DRG 660-4-7036-01, where repair covers all the way up to complete replacement of plate sections.
+
+## Zone 1 (0-3m from midspan)
+### Top FLange plates
+
+For simplicity, design is based on 50% corrosion on top flange element, while the other elements are corroded up to maximum where its not required to be overplated.
+
+```{julia}
+xca = 0.5 # percent loss of thickness 
+
+D = 677.9mm - xca * 16.2mm
+B = 253.0mm
+Tt = 16.2mm * (1 - xca)
+Tb = 16.2mm * (1 - 0.15) # assuming corroded up to 15%, no overplate required for fatigue
+rr = 15.2mm * (1 - 0.15)
+tw = 11.7mm * (1 - 0.15)
+
+gr_pl = ASNZS3678_250()
+sec1_uls_T = MonoIsection_plus(D, B, B, Tt, Tb, tw, rr, gr_pl; top_inside=(bp=250mm, tp=12mm));
+
+sec1_uls_T.geom.plot_geometry(filename="images/repair_top_flange.png");
+```
+
+![Design cross section geometry](images/repair_top_flange.png){width=90%}
+
+```{julia}
+# define member design parameters
+Lmemb = 3.0m
+memb_girder = IMember(sec1_uls_T, Lmemb; ky=1.0, kz=1.0, kLebt=1.4, kLebb=1.0);
+
+res = [fr_combined(memb_girder, Fd, x=tx) for Fd in vFd8uls for tx in 0.0m:0.3m:Lmemb]
+vr = [t.r for t in res]
+r, ir = findmax(vr)
+println(res[ir].calc_details)
+```
+
+
+### Bottom FLange plates
+
+For simplicity, design is based on 50% corrosion on bottom flange element, while the other elements are corroded up to maximum where its not required to be overplated.
+
+```{julia}
+xca = 0.5 # percent loss of thickness 
+
+D = 677.9mm - xca * 16.2mm
+B = 253.0mm
+Tt = 16.2mm * (1 - 0.15) # assuming corroded up to 15%, no overplate required for fatigue
+Tb = 16.2mm * (1 - xca)
+rr = 15.2mm * (1 - 0.15)
+tw = 11.7mm * (1 - 0.15)
+
+gr_pl = ASNZS3678_250()
+sec1_uls_B = MonoIsection_plus(D, B, B, Tt, Tb, tw, rr, gr_pl; bottom_outside=(bp=230mm, tp=12mm));
+
+sec1_uls_B.geom.plot_geometry(filename="images/repair_bott_flange.png");
+```
+
+![Design cross section geometry](images/repair_bott_flange.png){width=90%}
+
+```{julia}
+# define member design parameters
+Lmemb = 3.0m
+memb_girder = IMember(sec1_uls_B, Lmemb; ky=1.0, kz=1.0, kLebt=1.4, kLebb=1.0);
+
+res = [fr_combined(memb_girder, Fd, x=tx) for Fd in vFd8uls for tx in 0.0m:0.3m:Lmemb]
+vr = [t.r for t in res]
+r, ir = findmax(vr)
+println(res[ir].calc_details)
+```
+
+
+## Zone 2 (3-6m from midspan)
+
+### Top FLange plates
+
+For simplicity, design is based on 50% corrosion on top flange element, while the other elements are corroded up to maximum where its not required to be overplated.
+
+```{julia}
+xca = 0.5 # percent loss of thickness 
+
+D = 677.9mm - xca * 16.2mm
+B = 253.0mm
+Tt = 16.2mm * (1 - xca)
+Tb = 16.2mm * (1 - 0.3) # assuming corroded up to 30%, no overplate required for fatigue
+rr = 15.2mm * (1 - 0.3)
+tw = 11.7mm * (1 - 0.3)
+
+gr_pl = ASNZS3678_250()
+sec2_uls_T = MonoIsection_plus(D, B, B, Tt, Tb, tw, rr, gr_pl; top_inside=(bp=230mm, tp=12mm));
+
+sec2_uls_T.geom.plot_geometry(filename="images/repair2_top_flange.png");
+```
+
+![Design cross section geometry](images/repair2_top_flange.png){width=90%}
+
+```{julia}
+# define member design parameters
+Lmemb = 3.0m
+memb_girder = IMember(sec2_uls_T, Lmemb; ky=1.0, kz=1.0, kLebt=1.4, kLebb=1.0);
+
+res = [fr_combined(memb_girder, Fd, x=tx) for Fd in vFd9uls for tx in 0.0m:0.3m:Lmemb]
+vr = [t.r for t in res]
+r, ir = findmax(vr)
+println(res[ir].calc_details)
+```
+
+
+### Bottom FLange plates
+
+For simplicity, design is based on 50% corrosion on bottom flange element, while the other elements are corroded up to maximum where its not required to be overplated.
+
+```{julia}
+xca = 0.5 # percent loss of thickness 
+
+D = 677.9mm - xca * 16.2mm
+B = 253.0mm
+Tt = 16.2mm * (1 - 0.3) # assuming corroded up to 15%, no overplate required for fatigue
+Tb = 16.2mm * (1 - xca)
+rr = 15.2mm * (1 - 0.3)
+tw = 11.7mm * (1 - 0.3)
+
+gr_pl = ASNZS3678_250()
+sec2_uls_B = MonoIsection_plus(D, B, B, Tt, Tb, tw, rr, gr_pl; bottom_outside=(bp=230mm, tp=12mm));
+
+sec2_uls_B.geom.plot_geometry(filename="images/repair2_bott_flange.png");
+```
+
+![Design cross section geometry](images/repair2_bott_flange.png){width=90%}
+
+```{julia}
+# define member design parameters
+Lmemb = 3.0m
+memb_girder = IMember(sec2_uls_B, Lmemb; ky=1.0, kz=1.0, kLebt=1.4, kLebb=1.0);
+
+res = [fr_combined(memb_girder, Fd, x=tx) for Fd in vFd9uls for tx in 0.0m:0.3m:Lmemb]
+vr = [t.r for t in res]
+r, ir = findmax(vr)
+println(res[ir].calc_details)
+```
+
+ 

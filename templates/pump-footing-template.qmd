@@ -1,0 +1,650 @@
+---
+engine: julia 
+execute:
+  daemon: 3600 
+  cache: true
+
+julia: 
+  exeflags: ["--project=.julia" ]    
+
+code-overflow: wrap
+
+mainfont: Lato
+fontsize: 11pt
+
+format:
+  pdf:
+    pdf-engine: lualatex
+    number-sections: true 
+    include-in-header: .julia/header.tex
+    filters:
+      - .julia/revision-filter.lua
+    monofont: Julia Mono
+    monofontoptions: "Scale=0.7"
+    papersize: A4
+
+header-includes:
+  - \def\companyName{Agilitus}
+  - \def\logoCompany{C:/Users/Josua/Juliarepo/agilitex_header/images/logo-agilitus.png}
+  - \def\client{Glencore}
+  - \def\logoClient{images/logo-aurukun.png}
+  - \def\projNo{23259}
+  - \def\projTitle{Aurukun Bauxite Project}
+  - \def\calcNumber{23259-ST-CAL-0094}
+  - \def\calcTitle{BP Pump Foundations}
+  - \def\projPhase{FEED Design} 
+
+revisions:
+  - revNo: A
+    revDate: 11/06/25
+    revDesc: IFIR
+    revAuthor: JOSUA A.
+    revCheck: K. KOOPS
+    revApp: 
+---
+
+```{=latex}
+\coverpageHeader{Calculation Objective / Scope}
+```
+- Design pump footing
+
+```{=latex}
+\coverpageHeader{Calculation Assumptions} 
+```
+- Allowable bearing pressure is 150kPa
+- Soil spring based on 150kPa/15mm stiffness
+- Weight of soil is 18kN/m\^3 
+- Mass ratio limited to > 2.0
+- Bearing pressure limited to < 50% of allowable
+- maximum eccentricity is limited to ≤ 5% of footing dimension 
+
+```{=latex}
+\coverpageHeader{Software Used} 
+```
+- manual calculation 
+
+```{=latex}
+\coverpageHeader{References} 
+```
+- Pumps preliminary information, Appendix A
+
+```{=latex}
+\coverpageHeader{Holds} 
+```
+
+- n/a
+
+{{< pagebreak >}}
+
+<!-- add TOC using latex -->
+
+```{=latex}
+\tableofcontents
+```
+
+{{< pagebreak >}}
+ 
+```{julia}
+#| label: activate
+#| echo: false
+#| output: false
+using Pkg
+
+Pkg.activate(".julia")
+
+using Unitful, DataFrames, XLSX, Plots, Unitful.DefaultSymbols, Revise
+
+using MyUnits, MyHelper, WindLoadModule, SeismicLoadModule, FootingModule, ConcreteModule
+# PackageSpec(path=raw"C:\\Users\\Josua\\Juliarepo\\MyUnits/") 
+```
+
+# Sizing Screen Feed Pump Footing (MDC) 
+
+![Coordinates of masses ](images/MDC_pump_dims.png)
+
+## Location of masses, relative to centre of middle row bolts
+
+```{julia}
+#| echo: false
+#| output: false 
+vXmass = []
+vYmass = []
+vZmass = []
+vGmech = []
+```
+
+mass and location of motor, 2x, applied on the same plinth
+
+```{julia}
+#| label: mass and location of motor
+z_motor = 2259mm
+push!(vXmass, -663mm)
+push!(vYmass, 0mm)
+push!(vZmass, z_motor)
+push!(vGmech, 1150kgf * 2);
+```
+
+mass and location of pump
+
+```{julia}
+#| label: mass and location of pump
+
+push!(vXmass, 1275mm + 635mm)
+push!(vYmass, 0mm)
+push!(vZmass, 1308mm)
+push!(vGmech, 8500kgf * 2);
+```
+
+mass and location of frame, assume roughly central to plinth
+
+```{julia}
+#| label: mass and location of frame
+push!(vXmass, 0.0mm)
+push!(vYmass, 0.0mm)
+z_motor = 1308mm
+push!(vGmech, 200kgf * 2);
+```
+
+
+
+## Soil parameters
+
+```{julia}
+#| echo: false
+#| output: false
+# allowable bearing
+q_all = 150kPa
+# WEIGHT OF SOIL
+γs = 18.0kN / m^3;
+
+ϕn = 1.0
+ϕd = 0.9
+ϕuϕ = 0.85
+ϕsoilbase = 28.0°;
+ϕfill = 28°;
+
+backfill = Soil_AS4678(γs, ϕfill, ϕn, ϕd, ϕuϕ);
+foundation = Soil_AS4678(γs, ϕsoilbase, ϕn, ϕd, ϕuϕ);
+```
+
+## Footing/plinth details
+
+RC Slab thickness and reo 
+
+```{julia} 
+D = 300mm
+γc = 24.0kN / m^3;
+db = 16mm;
+Ast = π / 4 * db^2;
+spacing = 200mm
+
+# cover to centre of rebar
+cc = 50mm + 1.5 * db;
+d = D - cc;
+# shear ties
+Asv_per_tiespacing = 0.0mm;
+
+# define slab cross section, ei slab11 is cross section for bending about axes 2
+rc_slab = AS3600RectSection(fc=32MPa, fy=500MPa, b=spacing, d=d, D=D, nbb=1, Abb=Ast);
+```
+
+
+```{julia}
+#| echo: false
+#| output: false
+rc_slab.concrete_section.plot_section(filename="images/slab1.png");
+```
+
+Plinth / Footing details, plinth is combined for 2 pumps. Loads appied accordingly.
+
+![Minimum plinth area for access](images/MDC_pump_min_plinth_dim__LC.png)
+
+```{julia}
+ae_pumpside = 300.0mm  # plinth edge distance from bolt
+s1_bolts = 2 * 1275mm  # spacing of xtreme bolts, lengthwise
+
+s2_pumps = 3472mm # distance bet 2 pumps
+
+# b1 = 4400mm - 150mm - 429mm - 635mm + ae_pumpside  # min req for access/maintenance 
+b1 = s1_bolts + 2 * 200mm # minimum for structural design
+
+b2 = 2 * (881mm + 1.0m) + s2_pumps  # min req for maintenance and structural design
+hped = 660mm + 150mm
+
+ae_motorside = b1 - ae_pumpside - s1_bolts
+
+# footing slab length, axis-1, 2 direction  
+B1 = b1 + 600mm
+B2 = max(b2 + 0mm, roundto(2 * (hped + D + z_motor) * tan(30°), 50mm) + s2_pumps)
+
+Df = D # depth to footing underside
+
+# pedestal ecc , plinth flush at the motor side
+e1 = -B1 / 2 + b1 / 2
+
+ped1 = RectanglePedestal(b1=b1, b2=b2, e1=e1, hp=hped)
+
+footing_slab = FootingSlab(B1, B2, rc_slab);
+vped = [ped1]
+raft = RaftFootingRect(vped, footing_slab, Df)
+plot(getFootingGeomVectors(raft), label="", aspect_ratio=:equal, size=(500, 500 / 1.6))
+```
+
+## Mass ratio
+
+```{julia}
+W_footing = raft.weight |> kN |> f2
+W_assy = sum(vGmech) |> kN |> f2
+rMass = upreferred(W_footing / W_assy) |> f2
+W_assy, W_footing, rMass
+```
+
+ratio is > 2.0, Accept
+
+## Applied loads
+
+```{julia}
+vLC = ["self-weights"]
+vFh1 = [0.0]kN
+vFh2 = [0.0]kN
+vFv = [-W_assy] .|> kN
+
+vMabt1 = 0.0kNm
+
+# determine ecc of masses, relative to centre of pedestal, +ve towards +X of mass coordinates
+e1_mass_origin = b1 / 2 - 200mm - 1275mm
+vMabt2 = -sum((e1_mass_origin .+ vXmass) .* -vGmech) |> kNm  # about axis 2 at center of bearing area, +ve per RHR
+```
+
+```{julia}
+vQ, vLC, df = fsetvQ(vFh1=vFh1, vFh2=vFh2, vFv=vFv, vMabt1=vMabt1, vMabt2=vMabt2)
+```
+
+## Permissible Bearing Pressure
+
+```{julia}
+pqx11, pqx22, calcdetails_qmax, qmax11, qmax22, ecc1_max, ecc2_max = check_bearing_pressure("", raft, backfill, "",
+    fgetForces=(; vNodes, vLC_range, filePathName, isZup) -> (vQ, vLC, df),
+    ψG=1.0, # load factor for dead weight of footing
+    isFrustumVol=false);
+pqx11
+```
+
+```{julia}
+println(calcdetails_qmax)
+```
+
+```{julia}
+#| echo: false
+#| output: false
+B1 * 0.05 |> mm
+```
+
+Checking edge of footing within 30 degreed from vertical, reckoned from centreline of pump.
+ 
+
+ratio of minimum width to B2 is less than 1.0, pass.
+
+
+maximum bearing is less than 50% of allowable (150kPa), pass.
+
+Maximum eccentricity e11 = `{julia} ecc1_max |> mm  |> f2` less than 0.05*B1=`{julia} 0.05*B1 |> mm`
+Maximum eccentricity e22 = `{julia} ecc2_max |> mm |> f2` less than 0.05*B2=`{julia} 0.05*B2 |> mm`
+ 
+
+# Sizing Screen Fines Pumps (14/12)   
+
+![Coordinates of masses ](images/14_12_PUMP_DIM.png)
+
+## Location of masses, relative to centre of middle row bolts
+
+```{julia}
+#| echo: false
+#| output: false 
+vXmass = []
+vYmass = []
+vZmass = []
+vGmech = []
+```
+
+mass and location of motor
+
+```{julia}
+#| label: mass and location of motor 14/12
+z_motor = 1662mm
+push!(vXmass, -698mm)
+push!(vYmass, 0mm)
+push!(vZmass, z_motor)
+push!(vGmech, 579kgf);
+```
+
+mass and location of pump
+
+```{julia}
+#| label: mass and location of pump 14/12
+push!(vXmass, 1025mm + 463mm)
+push!(vYmass, 0mm)
+push!(vZmass, 965mm)
+push!(vGmech, 5713kgf);
+```
+
+mass and location of frame, assume roughly central to plinth
+
+```{julia}
+#| label: mass and location of frame 14/12
+push!(vXmass, 0.0mm)
+push!(vYmass, 0.0mm)
+push!(vGmech, 200kgf);
+``` 
+
+
+## Footing/plinth details
+
+![Access and maintenance requirements](images/sizing_screen_fines_pump_access_dim.png)
+
+RC Slab thickness and reo 
+
+```{julia} 
+D = 300mm
+γc = 24.0kN / m^3;
+db = 16mm;
+Ast = π / 4 * db^2;
+spacing = 200mm
+
+# cover to centre of rebar
+cc = 50mm + 1.5 * db;
+d = D - cc;
+# shear ties
+Asv_per_tiespacing = 0.0mm;
+
+# define slab cross section, ei slab11 is cross section for bending about axes 2
+rc_slab = AS3600RectSection(fc=32MPa, fy=500MPa, b=spacing, d=d, D=D, nbb=1, Abb=Ast);
+```
+
+
+```{julia}
+#| echo: false
+#| output: false
+rc_slab.concrete_section.plot_section(filename="images/slab14_12_1.png")
+```
+
+![](images/slab14_12_1.png)
+
+Footing details:
+
+```{julia}  
+# minimum plinth size per LC
+
+# b1 = 3200mm  # min for access req
+b1 = 2 * (1025mm + 200mm)   # minimum req for rule of thumb, structural design
+b2 = 2600mm # for access req and weight ratio.
+
+hped = 440mm + 150mm #from top of slab
+
+ae_pumpside = 200.0mm # plinth edge distance from bolt
+s1_bolts = 2 * 1025mm  # spacing of xtreme bolts, lengthwise
+ae_motorside = b1 - ae_pumpside - s1_bolts
+
+# footing slab length, axis-1  
+B1 = b1 + 600mm  # to limit ecc to 5% of B1
+B2 = max(b2, roundto(2 * (hped + D + z_motor) * tan(30°), 50mm))  # to meet 30deg req from centre of motor
+
+Df = D  # depth to footing underside
+
+# pedestal ecc 
+e1 = -B1 / 2 + b1 / 2
+
+ped1 = RectanglePedestal(b1=b1, b2=b2, hp=hped, e1=e1)
+
+footing_slab = FootingSlab(B1, B2, rc_slab);
+vped = [ped1]
+raft = RaftFootingRect(vped, footing_slab, Df)
+plot(getFootingGeomVectors(raft), label="", aspect_ratio=:equal, size=(500, 500 / 1.6))
+```
+
+## Mass ratio
+
+```{julia}
+W_footing = raft.weight |> kN |> f2
+W_assy = sum(vGmech) |> kN |> f2
+rMass = upreferred(W_footing / W_assy) |> f2
+W_assy, W_footing, rMass
+```
+
+ratio is > 2.0, Accept
+
+## Applied loads
+
+![Centre of frame from tail side of plinth](images/centre_frame_14_12_pump_sizing_scrn_fines.png)
+
+```{julia}
+vLC = ["self-weights"]
+vFh1 = [0.0]kN
+vFh2 = [0.0]kN
+vFv = [-W_assy] .|> kN  # +ve is up convention
+
+vMabt1 = 0.0kNm
+
+# determine ecc of masses, relative to centre of pedestal, +ve towards +X of mass coordinates
+e1_mass_origin = b1 / 2 - 200mm - 1025mm
+vMabt2 = -sum((e1_mass_origin .+ vXmass) .* -vGmech) |> kNm  # about axis 2 at center of bearing area, +ve per RHR
+```
+
+
+
+```{julia}
+vQ, vLC, df = fsetvQ(vFh1=vFh1, vFh2=vFh2, vFv=vFv, vMabt1=vMabt1, vMabt2=vMabt2)
+```
+
+## Permissible Bearing Pressure
+
+```{julia}
+pqx11, pqx22, calcdetails_qmax, qmax11, qmax22, ecc1_max, ecc2_max = check_bearing_pressure("", raft, backfill, "",
+    fgetForces=(; vNodes, vLC_range, filePathName, isZup) -> (vQ, vLC, df),
+    ψG=1.0, # load factor for dead weight of footing
+    isFrustumVol=false);
+pqx11
+```
+
+```{julia}
+println(calcdetails_qmax)
+```
+
+```{julia}
+#| echo: false
+#| output: false
+
+B1 * 0.05
+```
+
+maximum bearing is less than 50% of allowable (150kPa), pass.
+
+Maximum eccentricity e11 = `{julia} ecc1_max |> mm  |> f2` less than 0.05*B1=`{julia} 0.05*B1 |> mm`
+Maximum eccentricity e22 = `{julia} ecc2_max |> mm |> f2` less than 0.05*B2=`{julia} 0.05*B2 |> mm`
+ 
+# Fines Transfer Pumps (14/12)   
+
+![Coordinates of masses ](images/14_12_PUMP_DIM.png)
+
+## location of masses, relative to centre of middle row bolts
+
+```{julia}
+#| echo: false
+#| output: false 
+vXmass = []
+vYmass = []
+vZmass = []
+vGmech = []
+```
+
+mass and location of motor
+
+```{julia}
+#| label: mass and location of motor 14/12_2
+
+z_motor = 1662mm
+push!(vXmass, -698mm)
+push!(vYmass, 0mm)
+push!(vZmass, z_motor)
+push!(vGmech, 2670kgf);
+```
+
+mass and location of pump
+
+```{julia}
+#| label: mass and location of pump 14/12_2
+
+push!(vXmass, 1025mm + 463mm)
+push!(vYmass, 0mm)
+push!(vZmass, 965mm)
+push!(vGmech, 5713kgf);
+```
+
+mass and location of frame, assume roughly central to plinth
+
+```{julia}
+#| label: mass and location of frame 14/12_2
+push!(vXmass, 0.0mm)
+push!(vYmass, 0.0mm)
+push!(vGmech, 200kgf);
+```
+
+## Footing/plinth details
+
+![Access and maintenance requirements](images/sizing_screen_fines_transfer_pump_access_dim.png)
+
+RC Slab thickness and reo 
+
+```{julia} 
+D = 300mm
+γc = 24.0kN / m^3;
+db = 16mm;
+Ast = π / 4 * db^2;
+spacing = 200mm
+
+# cover to centre of rebar
+cc = 50mm + 1.5 * db;
+d = D - cc;
+# shear ties
+Asv_per_tiespacing = 0.0mm;
+
+# define slab cross section, ei slab11 is cross section for bending about axes 2
+rc_slab = AS3600RectSection(fc=32MPa, fy=500MPa, b=spacing, d=d, D=D, nbb=1, Abb=Ast);
+```
+
+
+```{julia}
+#| echo: false
+#| output: false
+rc_slab.concrete_section.plot_section(filename="images/slab14_12_2.png")
+```
+
+Footing details:
+
+```{julia}  
+# minimum plinth size per LC
+# b1 = 2850mm  # min for access req
+b1 = 2 * (1025mm + 200mm)   # minimum req for rule of thumb, structural design
+b2 = 2600mm # for access req and weight ratio.
+
+hped = 630mm + 150mm #from top of slab
+
+ae_pumpside = 200.0mm # plinth edge distance from bolt
+s1_bolts = 2 * 1025mm  # spacing of xtreme bolts, lengthwise
+ae_motorside = b1 - ae_pumpside - s1_bolts
+
+# footing slab length, axis-1  
+B1 = b1 + 350mm  # to limit ecc to 5% of B1
+B2 = max(b2, roundto(2 * (hped + D + z_motor) * tan(30°), 50mm))  # to meet 30deg req from centre of motor
+
+Df = D  # depth to footing underside
+
+# pedestal ecc 
+e1 = -B1 / 2 + b1 / 2
+
+ped1 = RectanglePedestal(b1=b1, b2=b2, hp=hped, e1=e1)
+
+footing_slab = FootingSlab(B1, B2, rc_slab);
+vped = [ped1]
+raft = RaftFootingRect(vped, footing_slab, Df)
+plot(getFootingGeomVectors(raft), label="", aspect_ratio=:equal, size=(500, 500 / 1.6))
+```
+
+## Mass ratio
+
+```{julia}
+W_footing = raft.weight |> kN |> f2
+W_assy = sum(vGmech) |> kN |> f2
+rMass = upreferred(W_footing / W_assy) |> f2
+W_assy, W_footing, rMass
+```
+
+ratio is > 2.0, Accept
+
+## Input loads
+
+Resultant load are taken at centre of pedestal
+
+```{julia}
+vLC = ["self-weights"]
+vFh1 = [0.0]kN
+vFh2 = [0.0]kN
+vFv = [-W_assy] .|> kN
+
+vMabt1 = 0.0kNm
+
+# eccentric load, relative to center of ped
+e1_mass_origin = b1 / 2 - 200mm - 1025mm
+vMabt2 = -sum((e1_mass_origin .+ vXmass) .* -vGmech) |> kNm  # about axis 2 at center of bearing area, +ve per RHR
+```
+
+```{julia}
+vQ, vLC, df = fsetvQ(vFh1=vFh1, vFh2=vFh2, vFv=vFv, vMabt1=vMabt1, vMabt2=vMabt2)
+```
+
+## Permissible Bearing Pressure
+
+```{julia}
+pqx11, pqx22, calcdetails_qmax, qmax11, qmax22, ecc1_max, ecc2_max = check_bearing_pressure("", raft, backfill, "",
+    fgetForces=(; vNodes, vLC_range, filePathName, isZup) -> (vQ, vLC, df),
+    ψG=1.0, # load factor for dead weight of footing
+    isFrustumVol=false);
+pqx11
+```
+
+```{julia}
+println(calcdetails_qmax)
+```
+
+```{julia}
+#| echo: false
+#| output: false
+
+B1 * 0.05
+```
+
+
+ratio of minimum width to B2 is less than 1.0, pass.
+
+maximum bearing is less than 50% of allowable (150kPa), pass.
+
+Maximum eccentricity e11 = `{julia} ecc1_max |> mm  |> f2` less than 0.05*B1=`{julia} 0.05*B1 |> mm`
+Maximum eccentricity e22 = `{julia} ecc2_max |> mm |> f2` less than 0.05*B2=`{julia} 0.05*B2 |> mm`
+
+
+
+{{< pagebreak >}}
+
+ ```{=latex }
+\appendixHeader{Appendix A  \\ Preliminary Pump Information}
+\addcontentsline{toc}{section}{Appendix A - Preliminary Pump Information}
+ ``` 
+
+```{=latex}
+\includepdf[pages=-,landscape=true]{pdf-to-embed/350TU-MDC_ZV.pdf}
+
+\includepdf[pages=-,landscape=true]{pdf-to-embed/1412FFAH_ZV2.pdf}
+```
+
+
+

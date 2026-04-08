@@ -1,0 +1,56 @@
+
+<!-- refer project 25223 yarwun calciner -->
+
+# Plastic strain limit calibration
+
+## Bilinear stress-strain curve
+
+```{julia}
+Ep = (243.4MPa - 236.2MPa) / (0.02 - 0.004)  # tangent modulus from table 4-2 of Ref[3]
+```
+
+## Gross yield strain, through thickness calibration {#sec-gross-calibration}
+
+According to DNV-RP-C208, the plastic strain limit for steel is to be calibrated according to 5.1.3.2
+
+![Calibration test piece per DNV-RP-C208](images/calibration_test_piece_DNV.png){#fig-dnv-calibration width="400"}
+
+```{julia}
+#| label: dnv-calibration
+#| echo: true
+t = 15mm # std calibration thickness
+l = 30mm # per DNV calibration example length
+
+ϵ_crg = 5.0 / 100 # from figure above
+
+ϵ_crl = ϵ_crg * (1 + 5 * t / 3l)
+```
+
+According to RP-C208, the capacity has to have a material partial safety factor of
+
+```{julia}
+ϕ = 0.9  # material partial safety factor for steel in AS 4100
+γtf = 1.2  # additional safety factor for tensile fracture according to hte procedure per DNV-RP-C208 5.1.3
+γM = γtf * 1 / ϕ
+```
+
+therefore the allowable plastic strain limit, considering the safety factors is
+
+```{julia}
+ϵ_crl_membrane_allow = ϵ_crl / γM
+```
+
+This will allow the analysis of the platework to determine the adequacy of the design by direct plot within the software. In addition, the yield zone must be within 20t from the point of maximum plastic strain.
+
+## localized out-of-plane strain calibration
+
+For stresses dominated by out-of-plain bending, the plastic strain limit is to be calibrated according to 5.1.3.3 of DNV-RP-C208.
+
+![Calibration test piece per DNV-RP-C208, local surface limit](images/calibration_test_piece_DNV_surface_local.png){width="400"}
+
+Therefore the plastic strain limit for localized out-of-plane bending is
+
+```{julia}
+ϵ_crl_surface = 14.77 / 100 # from figure above
+ϵ_crl_allow_surface = ϵ_crl_surface / γM
+```

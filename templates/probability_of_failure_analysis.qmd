@@ -1,0 +1,166 @@
+
+
+## Probability of failure analysis {#sec-probability-of-failure-analysis}
+
+This analysis explores the relationship between the number of applied fatigue cycles and the corresponding probability of failure (Pf). The methodology is built on the standard assumption that fatigue life, `N`, follows a log-normal distribution. This means the natural logarithm of life, `ln(N)`, is normally distributed with a mean `μ_ln` and a standard deviation `σ_ln`.
+
+Design S-N curves, such as those in AS 4100 and BS 7608, define a "design life" (`N_design`) for a given stress range. These curves are typically conservative, representing a low probability of failure. For instance, BS 7608-1993 bases its curves on the "mean minus two standard deviations" life, which corresponds to a z-score (`z0`) of -2.0 and a nominal probability of failure (Pf) of 2.3%. We assume the AS 4100 curves have a similar probabilistic basis.
+
+To evaluate the Pf for a different number of cycles (`N_target`), we introduce a cycle multiplier `F`, where `N_target = F * N_design`. By rearranging the fundamental z-score equation for a log-normal distribution, we can derive a direct relationship between this multiplier `F` and the z-score (`z_pf`) of the target probability:
+
+`F = exp(σ_ln * (z_pf - z0))`
+
+This allows us to calculate the increase in failure probability for any given increase in service life, or vice-versa.
+
+```{julia} 
+sigma_log10_values = [0.1821]  # std dev in log10(N), from Table 14 in BS 7608-1993, for class B
+Pf_targets = [2.3, 16, 31, 50] ./ 100.0  # target nominal probabilities of failure, refer Table 15, BS 7608-1993.
+z0 = -2.0  # z-score for the design curve, interpreted as -2*σ, σ=std deviation
+
+# Generate the results using a DataFrame comprehension for conciseness.
+rows = DataFrame(
+    let
+        sigma_ln = sigma_log10 * log(10)
+        z_pf = quantile(Normal(0, 1), Pf)
+        F = exp(sigma_ln * (z_pf - z0))
+        (
+            sigma_log10=sigma_log10,
+            sigma_ln=sigma_ln,
+            Pf=Pf,
+            z_pf=z_pf,
+            F_multiplier=F
+        )
+    end
+    for sigma_log10 in sigma_log10_values, Pf in Pf_targets
+)
+rows
+```
+
+```{julia}
+#| echo: false
+#| 
+# --- Plot Pf vs multiplier F for each sigma_log10 ---
+F_vals = range(0.5, stop=3.0, length=600)
+plt = plot(title="Pf vs cycle multiplier F", xlabel="Cycle multiplier F (N_target / N_design)", ylabel="Probability of failure Pf", legend=:topleft)
+
+for sigma_log10 in sigma_log10_values
+    sigma_ln = sigma_log10 * log(10)
+    # z_pf_vals from relation: z_pf = z0 + ln(F)/sigma_ln
+    #=
+    This equation is derived by rearranging the formula for the cycle multiplier `F`. The goal is to solve for the z-score `z_pf` given a multiplier `F`.
+
+    Starting from the relationship derived previously:
+    `F = exp(σ_ln * (z_pf - z0))`
+
+    1. Take the natural logarithm (`ln`) of both sides:
+       `ln(F) = σ_ln * (z_pf - z0)`
+
+    2. Divide both sides by `σ_ln`:
+       `ln(F) / σ_ln = z_pf - z0`
+
+    3. Add `z0` to both sides to isolate `z_pf`:
+       `z_pf = z0 + ln(F) / σ_ln`
+
+    This gives the z-score for each value of `F`, which can then be used to find the corresponding probability of failure, `Pf`.
+    =#
+    z_pf_vals = z0 .+ log.(F_vals) ./ sigma_ln
+
+    Pf_vals = cdf.(Normal(0, 1), z_pf_vals)
+    plot!(plt, F_vals, Pf_vals, label="σ_log10=$(sigma_log10)")
+end
+for p in Pf_targets
+    hline!(plt, [p], linestyle=:dash, label="Pf=$(p)")
+end
+
+# Embed the plot in notebook/canvas environments
+plt
+```
+
+```{julia}
+"""
+    get_F_from_Pf(Pf, sigma_log10, z0)
+
+Calculates the cycle multiplier `F` given a probability of failure `Pf`.
+
+# Arguments
+- `Pf`: The target probability of failure.
+- `sigma_log10`: The standard deviation of the number of cycles in log10 space.
+- `z0`: The z-score corresponding to the design curve (e.g., -2.0 for a mean - 2σ curve).
+
+# Returns
+- The cycle multiplier `F = N_target / N_design`.
+"""
+function get_F_from_Pf(Pf::Float64, sigma_log10::Float64, z0::Float64)
+    # Convert sigma from log10 space to natural log space
+    sigma_ln = sigma_log10 * log(10)
+
+    # Calculate the z-score for the given probability of failure
+    z_pf = quantile(Normal(0, 1), Pf)
+
+    # Invert the relationship to solve for F
+    # Original: z_pf = z0 + log(F) / sigma_ln
+    F = exp(sigma_ln * (z_pf - z0))
+
+    return F
+end
+```
+
+For a practical and reasonable change in risk, assume increasing risk to 2x and 5x from the safe design rules of AS4100.  The N_life multiplier F are
+
+```{julia}
+z0 = -2.0
+sigma_log10 = 0.20
+Pf_val = [2, 3, 4, 5] .* 0.023
+
+# Calculate F
+F_vals = [get_F_from_Pf(Pf, sigma_log10, z0) for Pf in Pf_val]
+```
+
+### Estimating the timeline for higher Pf
+
+```{julia}
+N_life_design = tripper_passes_reduced  # the design limit for end joints
+time_N_life_design = 40yrs
+
+timelines = DataFrame(
+    Probability_of_Failure_Pf=Pf_val, cyles_multiplier_F=F_vals, Remaining_time=time_N_life_design .* (F_vals .- 1.0)
+)
+
+```
+
+## Sanity Check of Pf using directly BS 7608
+
+```{julia}
+#| label: BS 7608 functions
+#| echo: false
+d = 2.0
+function calculate_fatigue_life_perBS7608(Sr::Real, d::Real)
+    # in ln(N) terms
+    # C0_ln = 15.36
+    C0_ln = 35.39
+    m_sn = 4.0
+    # σ_ln = 0.1821
+    σ_ln = 0.4194
+    # ln_N = C0_ln - σ_ln * d - m_sn * log10(Sr)
+    ln_N = C0_ln - σ_ln * d - m_sn * log(Sr)
+
+    # Solve for N by taking 10 to the power of the result
+    # N = 10^(ln_N)
+    N = exp(ln_N)
+
+    return N
+end
+```
+
+```{julia}
+Sr = ustrip.(MPa, maximum(vfi_ej_critical)) # critical stress range for critical end joint
+
+# calculate N life at Pf=2.3% and Pf=16%, corresponding to d=2 and d=1, respectively.
+N_life, N_target = calculate_fatigue_life_perBS7608(Sr, 2), calculate_fatigue_life_perBS7608(Sr, 1);
+
+# multiplier F for Pf = 16% from Pf=2.3% as basis.
+F_7608 = N_target / N_life
+```
+
+By inspection, the ratio of target design life with Pf=16% in AS4100 as discussed in @sec-probability-of-failure-analysis is comparable to BS 7608. Accept failure analysis results.
+

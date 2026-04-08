@@ -1,0 +1,343 @@
+# Strip footing (B1 => x-axis)
+
+
+## Load combinations
+
+```{julia}
+uls_cases = vcat(101:199) #uls cases
+permissible_cases = vcat(201:204) # PERMISSIBLE cases
+
+# excel file output from SG model reactions
+filename = "\\xlsx\\reactions.xlsx"
+current_dir = dirname(@__FILE__)
+filepathname = current_dir * filename;
+```
+
+## Standard pedestal, SQ460
+
+```{julia}
+b = 460mm
+D = b
+db = 16mm
+Ab = π / 4 * db^2
+n_all_around = 4
+
+dtie = 10mm # assume 2 ties only
+Asv_per_tiespacing = 2 * π / 4 * dtie^2 / 300mm |> mm^2 / mm
+
+d = D - 50mm - 1.5 * db - dtie
+fc = 32MPa
+fy = 500MPa
+rc_sq500 = AS3600RectSection(n_all_around, Ab, b, d, D, fc, fy, Asv_per_tiespacing)
+```
+
+```{julia}
+#| echo: false
+#| output: false
+rc_sq500.concrete_section.plot_section(filename="images/sq500.png");
+```
+
+![](images/sq500.png)
+
+
+## Reinforced 300 slab, N16-200; moment capacity
+
+```{julia}
+D = 300mm
+γc = 24.0kN / m^3;
+db = 16mm;
+Ast = π / 4 * db^2;
+# cover to centre of rebar
+cc = 50mm + 1.5 * db;
+d = D - cc;
+# shear ties
+Asv_per_tiespacing = 0.0mm;
+
+# define slab, per bar spacing
+rc_slab = AS3600RectSection(fc=fc, fy=fy, b=1m, d=d, D=D, nbb=5, Abb=Ast);
+```
+
+```{julia}
+#| echo: false
+rc_slab.concrete_section.plot_section(filename="images/rc_slab.png");
+```
+
+![](images/rc_slab.png){width="300"}
+
+```{julia}
+Mdes_rc_slab, str_o = fdesign_beam_moment(rc_slab)
+println(str_o)
+```
+
+
+### Foundation parameters
+
+```{julia}  
+sp = 0.7m
+ae = 0.9m
+B1 = sp + 2 * ae
+B2 = 1.0m
+
+D = rc_slab.D
+Df = 1.0m # depth to footing underside
+hs = Df - D # height of soil overburden 
+hp = Df - D + 300mm # height of pedestal
+
+# pedestal location 
+e11 = -B1 / 2 + ae
+e12 = e11 + sp
+
+ped11 = RectanglePedestal(rc_sq500, hp, e11; nodenum=1)
+ped12 = RectanglePedestal(rc_sq500, hp, e12; nodenum=5)
+
+slab = FootingSlab(B1, B2, D);
+vped = [ped11, ped12]
+raft = RaftFootingRect(vped, slab, Df)
+fg = plot_footing_geom(raft)
+```
+
+
+## Soil parameters
+
+```{julia}
+# allowable bearing
+q_all = 100kPa
+# WEIGHT OF SOIL
+γs = 18.0kN / m^3;
+
+ϕn = 1.0
+ϕd = 0.9
+ϕuϕ = 0.85
+ϕsoilbase = 30.0°;
+ϕfill = 30°;
+
+backfill = Soil_AS4678(γs, ϕfill, ϕn, ϕd, ϕuϕ);
+foundation = Soil_AS4678(γs, ϕsoilbase, ϕn, ϕd, ϕuϕ);
+```
+
+
+## ULS bearing pressure 
+
+```{julia}
+res = fraft_global_analysis(filepathname, uls_cases, raft, backfill, ψG=0.9, isZup=true, isFrustumVol=true,
+    e_lim_11=300mm,
+    e_lim_22=300mm)
+
+calc_res, diagram = check_bearing_from_results(res, raft, uls_cases)
+println(calc_res.calc_details)
+```
+
+```{julia}
+#| echo: false
+diagram
+```
+
+## SLS bearing pressure
+
+```{julia}
+pqx11, pqx22, calcdetails_qmax = check_bearing_pressure(filepathname, raft, backfill, permissible_cases,
+    isZup=true,
+    ψG=0.9,
+    isFrustumVol=false);
+pqx11
+```
+
+```{julia}
+pqx22
+```
+
+```{julia}
+println(calcdetails_qmax)
+```
+
+## ULS sliding check
+
+```{julia}
+str_out = check_sliding(filepathname, raft, backfill, foundation, uls_cases, isZup=true,
+    isAdhesion=false,
+    Gext=0.0kN,
+    withPassive=true,
+    isFrustumVol=true);
+println(str_out)
+```
+
+### Moment diagram
+
+```{julia}
+calc_res, diagram_m = check_moment_diagram_from_results(res_bearing, raft, backfill; ψG=0.9, isFrustumVol=true, inc=0.01m, is_plot_all=true)
+diagram_m
+```
+
+### Shear diagram
+
+```{julia}
+calc_res, diagram_v = check_shear_diagram_from_results(res_bearing, raft, backfill; ψG=0.9, isFrustumVol=true, inc=0.01m, is_plot_all=true)
+diagram_v
+```
+
+
+## Punching Shear
+
+```{julia}
+str_o = check_punching(raft, uls_cases, ; isZup=true, filepathname=filepathname)
+println(str_o)
+```
+
+
+## Pedestal beam shear
+
+```{julia}
+str = check_pedestal_shear(filepathname, raft, uls_cases, ; isZup=true)
+println(str)
+```
+
+
+# latest strip footing
+
+```{julia}
+#| echo: false
+#| output: false
+#| 
+uls_cases = vcat(101:199) #uls cases
+permissible_cases = vcat(201:204) # PERMISSIBLE cases
+
+# excel file output from SG model reactions
+filename_flot = "\\csv\\25068stcal0011_cable_ladder_flotcells.XLSX"
+current_dir = dirname(@__FILE__)
+filepathname_flot = current_dir * filename_flot;
+```
+
+#### Soil parameters
+
+```{julia}
+# allowable bearing
+q_all = 100kPa
+# WEIGHT OF SOIL
+γs = 18.0kN / m^3;
+
+ϕn = 1.0
+ϕd = 0.9
+ϕuϕ = 0.85
+ϕsoilbase = 30.0°;
+ϕfill = 30°;
+
+backfill = Soil_AS4678(γs, ϕfill, ϕn, ϕd, ϕuϕ);
+foundation = Soil_AS4678(γs, ϕsoilbase, ϕn, ϕd, ϕuϕ);
+```
+
+#### Reinforced slab, N12-200 
+
+```{julia}
+fc = 32MPa
+fy = 500MPa
+D = 250mm
+γc = 24.0kN / m^3;
+db = 10mm;
+Ast = π / 4 * db^2;
+# cover to centre of rebar
+cc = 50mm + 1.5 * db;
+d = D - cc;
+# shear ties
+Asv_per_tiespacing = 0.0mm;
+
+# define slab, per bar spacing
+rc_slab_flot = AS3600RectSection(fc=fc, fy=fy, b=1m, d=d, D=D, nbb=5, Abb=Ast);
+```
+
+```{julia}
+#| echo: false
+rc_slab_flot.concrete_section.plot_section(filename="images/flotation_area/rc_slab_flot.png");
+```
+
+![](images/flotation_area/rc_slab_flot.png){width="300"}
+
+```{julia}
+Mdes_rc_slab_flot, str_o = fdesign_beam_moment(rc_slab_flot, isIgnoreMinAst=true)
+println(str_o)
+```
+
+#### Foundation parameters
+
+```{julia}
+ae1 = 300mm  # ped1 offset from left edge of footing
+B1 = 1200mm
+e11 = -B1 / 2 + ae1
+e12 = e11 + 215mm
+
+ae2 = 0.6m
+sp2 = 4483mm
+B2 = 2 * ae2 + sp2
+e21 = B2 / 2 - ae2
+e22 = -B2 / 2 + ae2
+
+D = rc_slab_flot.D
+Df = D              # depth to footing underside
+hs = 0.0m           # height of soil overburden 
+
+# pedestal 
+dp = 600mm
+hp = 300mm
+rc_circ600_1 = CircularPedestal(dp, hp, e11, e21; nodenum=54)  # north side
+rc_circ600_2 = CircularPedestal(dp, hp, e12, e22; nodenum=54)  # south side
+
+slab = FootingSlab(B1, B2, rc_slab_flot);
+vped = [rc_circ600_1, rc_circ600_2]
+raft_flot = RaftFootingRect(vped, slab, Df)
+fg = plot_footing_geom(raft_flot)
+```
+
+
+#### ULS bearing pressure 
+
+```{julia}
+res_bearing_flot = fraft_global_analysis(filepathname_flot, uls_cases, raft_flot, backfill, ψG=0.9, isZup=true, isFrustumVol=true,
+    e_lim_11=0.9 * B1 / 2,
+    e_lim_22=0.9 * B2 / 2)
+
+calc_res_bearing_flot, diagram_bearing_flot = check_bearing_from_results(res_bearing_flot, raft_flot)
+println(calc_res_bearing_flot.calc_details)
+```
+
+```{julia}
+#| echo: false
+diagram_bearing_flot
+```
+
+By inspection, the permissible bearing will be less than 100kPa, accept design.
+
+#### Moment diagram (long direction)
+
+```{julia}
+calc_res_moment_flot, diagram_moment_flot = check_moment_diagram_from_results(res_bearing_flot, raft_flot, backfill; ψG=0.9, isFrustumVol=true, inc=0.05m, is_plot_all=false)
+diagram_moment_flot
+```
+
+By inspection, design moment is less than capacity of slab, design OK.
+
+#### Shear diagram
+
+```{julia}
+calc_res_shear_flot, diagram_shear_flot = check_shear_diagram_from_results(res_bearing_flot, raft_flot, backfill; ψG=0.9, isFrustumVol=true, inc=0.05m, is_plot_all=false)
+diagram_shear_flot
+```
+
+```{julia}
+Vu = 16kN
+Mu = 10kNm
+_, str_o = fdesign_beam_shear(rc_slab_flot, Vu, Mu, 0kN)
+println(str_o)
+```
+
+#### Punching Shear
+
+```{julia}
+str_o = check_punching(raft_flot, uls_cases, ; isZup=true, filepathname=filepathname_flot)
+println(str_o)
+```
+
+#### Punching Shear
+
+```{julia}
+str_o = check_punching(raft_flot, uls_cases, ; isZup=true, filepathname=filepathname_flot)
+println(str_o)
+```

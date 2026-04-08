@@ -1,0 +1,342 @@
+---
+mainfont: Lato
+fontsize: 11pt
+format:
+  pdf:
+    pdf-engine: lualatex
+    number-sections: true 
+    
+    include-in-header: julia/header.tex
+    filters:
+      - julia/revision-filter.lua
+    monofont: JuliaMono
+    monofontoptions: "Scale=0.7"
+    papersize: A4
+
+header-includes:
+  - \def\companyName{Agilitus Qld}
+  - \def\logoCompany{C:/Users/Josua/Juliarepo/agilitex_header/images/logo-agilitus.png}
+  - \def\client{Client}
+  - \def\logoClient{images/logo-client.png}
+  - \def\projNo{24211}
+  - \def\projTitle{Title}
+  - \def\calcNumber{2411-ST-CAL-0002}
+  - \def\calcTitle{Boat Ramp Slab Design}
+  - \def\projPhase{Detailed Design} 
+
+revisions:
+  - revNo: 
+    revDate:  
+    revDesc:  
+    revAuthor:  
+    revCheck:  
+    revApp: 
+  - revNo: A
+    revDate: 15/01/25
+    revDesc: IFIR
+    revAuthor: Josua A.
+    revCheck: F. Hakim
+    revApp: 
+
+execute:
+  daemon: 3600
+  cache: true
+
+julia: 
+  exeflags: ["--project=@."]    
+
+---
+
+```{=latex}
+\coverpageHeader{Calculation Objective / Scope}
+```
+* Design of boat ramp concrete slab
+
+
+```{=latex}
+\coverpageHeader{Calculation Assumptions} 
+```
+- Soil spring based on soaked CBR of 3.
+- Soil springs are derived from published charts/nomographs.
+- Load cyles is unlimited.
+
+```{=latex}
+\coverpageHeader{Software Used} 
+```
+* RFEM
+
+```{=latex}
+\coverpageHeader{Holds} 
+``` 
+
+* n/a 
+
+
+{{< pagebreak >}}
+
+<!-- add TOC using latex -->
+```{=latex}
+\tableofcontents
+```
+
+{{< pagebreak >}}
+
+
+# Introduction {#sec-intro}
+
+## Calculation Objective / Scope
+
+Design of boat ramp concrete slab.
+
+## Exclusions
+
+- Geotechnical design
+- Design of subgrade
+
+## Basis of Design
+
+In general, design is in accordance with CCAA T48 and AS 3600 for conrete structure.
+
+## Design Standards and Codes
+
+Unless specifically noted, the design complies with Australian Standards and selected international standards. The following summarizes the key standards used in producing this calculation:
+
+-   AS 1170.0 - 2002 Structural design actions - Part 0: General principles
+-   AS 1170.1 - 2002 Structural design actions - Part 1: Permanent, imposed and other actions 
+-   AS 3600   - 2018 Concrete structures 
+-   AS 4997   - 2005 Guidelines for the design of maritime structures
+-   ACI 360R  - 2006 Design of Slabs-on-Ground
+
+## Other Reference Documents {#sec-references}
+
+Other reference documents used in this design include:
+
+1.   NSW Boat Ramp Facility Guidelines
+2.   CCAA T48 - Guide to Industrial Floors and Pavements - design, construction and specification 
+
+{{< pagebreak >}}
+
+```{julia}
+#| label: activate
+#| echo: false
+#| output: false
+using Pkg
+Pkg.activate(".")
+# PackageSpec(path=raw"C:\\Users\\Josua\\Juliarepo\\MyUnits/") 
+``` 
+
+```{julia}
+#| label: using
+#| echo: false
+#| output: false
+using Unitful, DataFrames, CSV, Plots, Unitful.DefaultSymbols, Revise
+```
+
+```{julia}
+#| echo: false
+#| output: false
+using MyUnits, MyHelper, ConcreteModule
+```
+
+
+# Loads {#sec-loads}
+
+## Wheel loads
+
+Load is in accordance with @sec-references(1).
+
+- Point load of 45kN, at 1.8m, each applied over an area of 300mm x 150mm; or
+- Uniformly dsitributed load of 10kPa
+
+Load cycles is assumed to be unlimited
+
+```{julia}
+ncycles = 1e6
+
+s_wheel = 1800mm # wheel spacing
+Pw = 45kN  # Each wheel/point
+Paxle = Pw * 2 # axle load
+# Paxle = 250kN
+```
+
+```{julia}
+Pw / 300mm / 150mm |> kPa
+```
+
+# Subgrade definition{#sec-subgrade}
+
+```{julia}
+CBR = 3;
+Hsoil = 6m # assume uniform layer
+```
+
+![Correlation between CBR and Modulus of subgrade reaction, ACI360R](images/CBR_toKs.png){#fig-cbr-to-Ks}
+
+from @fig-cbr-to-Ks, the modulus of subgrade reaction is
+```{julia}
+ks = 100psi / inch |> kPa / m
+```
+
+
+![Correlation between long-term Young's modulus, $E_{sl}$ , and CBR](images/cbr_to_Esl_chart.png){#fig-cbr-to-E}
+
+```{julia}
+# scale nomograph Fig 3.3, ACI 360R-06
+# to get equivalent CBR
+CBR = 4 + Int(round(upreferred((q_all - 10psi) / (10psi / 6))))
+```
+
+```{julia}
+# and get hte equivalent modulus of subgrade reaction
+ks = (100 + (CBR - 3) / 7 * 100)psi / inch |> kPa / m
+```
+
+From @fig-cbr-to-E, the long term Young's modulus is given below.
+```{julia}
+νc = 0.33
+Esl = fEsl(CBR) |> f2
+```
+
+![](images/beta_factor.png){#fig-beta}
+
+From @fig-beta, for predominantly sandy soil, short term Young's modulus given below.
+
+```{julia}
+β = 0.8 #  conservatively taken for sand, e.i. lower Ess
+Ess = Esl / β |> f2
+```
+
+
+# Concrete parameters
+ 
+For use in FEA analysis later in the calculation. 
+
+![Material Factor](images/table1.16.png)
+
+![Load repetition factor, K2](images/load_repititataion_factor.png) 
+
+```{julia}
+fc = 32MPa # concrete grade
+k1 = 0.85 # wheel loading factor
+k2 = fk2(ncycles)  # factor for load repititions
+```
+
+
+# Interior slab desgin by nomograph, CCAA T48
+
+Design by chart @fig-interior-loading
+
+![Axle loads - Interior loading](images/interior_loading_thicknes_chart.png){#fig-interior-loading}
+
+```{julia}
+#| echo: false
+tslab_interior, notes = fdesign_slab_interior(Paxle=Paxle, k1=k1, k2=k2, fc=fc, Ess=Ess, tread=s_wheel, Hsoil=Hsoil, isWheelLoad=true)
+
+println(notes)
+```
+
+Use design thickness by FEA, refer @sec-t-by-fea
+
+```{julia}
+tslab_interior = roundto(tslab_interior, 250mm)
+```
+
+
+# Edge slab desgin by nomograph, CCAA T48
+
+Design by chart @fig-fig-edge-loading
+
+![Axle loads - Edge loading](images/edge_loading_thicknes_chart.png){#fig-edge-loading}
+
+```{julia}
+#| echo: false
+tslab_edge, notes = fdesign_slab_edge(Paxle=Paxle, k1=k1, k2=k2, fc=fc, Ess=Ess, tread=s_wheel, Hsoil=Hsoil, isWheelLoad=true)
+println(notes)
+```
+
+Use design thickness by FEA, refer @sec-t-by-fea
+
+```{julia}
+tslab_edge = roundto(tslab_edge, 350mm)
+```
+
+## Width of edge thickening{#sec-width-edge} 
+
+The width of edge thickening is taken as the radius of relative stiffness as discuseed in TR34.
+
+```{julia}
+#| echo: false
+b_edge_thickening = fLr(fc=fc, tslab=tslab_edge, νc=νc, Ks=ks) |> mm |> f2
+println("Minimum width of edge thickening = $b_edge_thickening")
+```
+
+as will be shown laterby FEA, the width is reduced to 800mm.
+
+# Slab design by RFEM model{#sec-t-by-fea}
+
+The slab is design by modelling the slab in RFEM, and determining the tensile stresses.  The stress limits are calculated per  @sec-fcf-allowable
+
+- Interior slab thicknes 210mm, desgin thickness
+- Edge thickness 350mm, 800mm wide, design width
+- Modulus of subgrade calculated per @sec-subgrade
+
+## Allowable concrete flexural tensile stress{#sec-fcf-allowable}
+
+```{julia}
+f_all, notes = fF1(k1, k2, fc, isWheelLoad=true)
+println(notes)
+```
+
+## Internal loading stress ratio from RFEM, < 1.0, pass
+
+![Interior loading](images/rfem_models/interior_slab210.png)
+
+![Critical edge distance, 800mm from longer side](images/rfem_models/max_edge_distance.png)
+
+![Non-critical edge distance, 800mm from corner](images/rfem_models/corner_edge_distance.png.png)
+
+### Edge loading stress ratio from RFEM, < 1.0, pass
+
+![Middle (long side) edge loading, critical case](images/rfem_models/thickened_midle-long-side.png)
+
+![Corner edge loading](images/rfem_models/thickened_corner_load.png)
+
+![Middle (short side) edge loading](images/rfem_models/thickened_midle-short-side.png)
+
+# Punching check
+
+```{julia}
+Rpunching, stro = fVpunch_tire(; fc=fc, tslab=tslab_interior, btire=300mm, ptire=Pw / (300mm * 150mm), wheel_load=Pw, isInterior=true)
+
+println(stro)
+```
+
+Punching capacity is `{julia} Rpunching` $\geq$ `{julia} Pw`, PASS.
+
+
+# Shrinkage Reinforcement
+
+```{julia} 
+l = 25 * tslab_interior # typical length of jointed slab, plain concrete design
+b = 200mm # bar  sapacing
+
+As, stro = fshrinkage_bars(; b=b, l=b, t=tslab_interior, fy=500MPa, is_top_and_bottom=true)
+
+println(stro)
+```
+
+Provide SL82, top and bottom, galvanized
+
+```{julia}
+As_provided = π / 4 * (7.6mm)^2
+```
+
+# Summary of slab design
+
+- slab thickness at the interior is 250mm
+- slab thickness at the edges is 350mm
+- width of thickening is 800mm
+- 
+
+
+{{< pagebreak >}} 

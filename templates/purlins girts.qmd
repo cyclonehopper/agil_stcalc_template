@@ -1,0 +1,105 @@
+
+# Design of purlins
+
+![Lysaght capacity, double-lapped span, 1 bridging](images/Z20019_cap.png){width="90%" #fig-lysaght-capacity}
+
+Cpi = 0.0 for most positive pressure, refer @sec-internal-pressure-positive
+
+```{julia}
+Cpe = fCpe_roof(bldg_yy, x=0m, isUplift=true)
+```
+
+
+
+## Where kl=1.0
+```{julia}
+spacing = 1050mm;
+loadwidth = spacing
+kl = 1.0
+puw0 = kl * Cpe * wp_roof_uls.pressure * loadwidth |> kN / m
+```
+
+## where area is RA1 or RA3
+
+
+```{julia} 
+loadwidth = spacing
+span = 5.6m
+kl = fKl(a=bldg_yy.a_roofs, loadwidth=loadwidth, span=span, symbol=:RA1)
+```
+
+```{julia}
+puw1 = kl * Cpe * wp_roof_uls.pressure * loadwidth |> kN / m
+```
+
+## where area is RA2 or RA4
+
+```{julia}  
+kl = fKl(a=bldg_yy.a_roofs, loadwidth=loadwidth, span=span, symbol=:RA2)
+```
+
+```{julia}
+puw2 = kl * Cpe * wp_roof_uls.pressure * loadwidth |> kN / m
+```
+
+```{julia}
+puw0, puw1, puw2
+```
+
+From @fig-lysaght-capacity, capacity is 4.29kN/m > load, pass.
+
+## where area is RC1
+
+```{julia} 
+span = 3.9m
+kl = fKl(a=bldg_yy.a_roofs, loadwidth=loadwidth, span=span, symbol=:RC1)
+```
+
+```{julia}
+puw3 = kl * Cpe * wp_roof_uls.pressure * loadwidth |> kN / m
+```
+
+From @fig-lysaght-capacity, capacity is 10.18kN/m > load, pass.
+
+
+purlin summary:
+
+- Use Z20019 double-lapped-span @ 1200mm, 1 bridging
+
+
+# Design of girts
+
+## single span, grid 1, westward direction (plant north orientation)
+
+for most negative pressure, refer @sec-internal-pressure-positive
+
+```{julia}
+Cpi = -0.3
+```
+
+```{julia}
+Cpe = 0.7 - Cpi
+```
+
+### Where kl=1.0
+
+```{julia}  
+loadwidth = 1.0m
+span = 6.3m
+kl = 1.0
+puw0 = kl * Cpe * wp_roof_uls.pressure * loadwidth |> kN / m
+```
+
+### where area WA1
+
+```{julia}    
+kl = fKl(a=bldg_xx.a_walls, loadwidth=500mm, span=span, symbol=:WA1)
+```
+
+```{julia}
+puw1 = kl * Cpe * wp_roof_uls.pressure * 500mm |> kN / m
+```
+
+![](images/Z20019_cap_singlespan.png) {width="90%"}
+
+- use single span Z20019, 1000mm spacing,  1 bridging

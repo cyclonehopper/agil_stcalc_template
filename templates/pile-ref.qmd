@@ -1,0 +1,480 @@
+---
+execute:
+  daemon: 3600
+  cache: true
+
+julia: 
+  exeflags: ["--project=@."]    
+  
+
+mainfont: Lato
+fontsize: 11pt
+
+format:
+  pdf:
+    pdf-engine: lualatex
+    number-sections: true 
+    include-in-header: .julia/header.tex
+    filters:
+      - .julia/revision-filter.lua
+    monofont: Julia Mono
+    monofontoptions: "Scale=0.8"
+    papersize: A4
+
+header-includes:
+  - \def\companyName{Agilitus}
+  - \def\logoCompany{C:/Users/Josua/Juliarepo/agilitex_header/images/logo-agilitus.png}
+  - \def\client{Glencore}
+  - \def\logoClient{images/logo-aurukun.png}
+  - \def\projNo{23259}
+  - \def\projTitle{Aurukun Bauxite Project}
+  - \def\calcNumber{23259-ST-CAL-0151}
+  - \def\calcTitle{MIA Laboratory Roof Steel and Foundation}
+  - \def\projPhase{FEED Design} 
+
+revisions:
+  - revNo: A
+    revDate: 8/07/25
+    revDesc: IFIR
+    revAuthor: JOSUA A.
+    revCheck: K.KOOPS
+    revApp: 
+---
+
+
+```{=latex}
+\coverpageHeader{Calculation Objective / Scope}
+```
+- Design of MIA laboratory roof steel and foundation.
+
+```{=latex}
+\coverpageHeader{Calculation Assumptions} 
+```
+
+- Pile capacity according to Table 9, J20019-005-R-Rev0-Phase 2 MIA GI Report  0, Refer Appendix A
+
+
+```{=latex}
+\coverpageHeader{Software Used} 
+```
+
+- Space Gass
+
+```{=latex}
+\coverpageHeader{References} 
+``` 
+
+- Parker and Reese, 1979; method described in WA-RD 15.1 - Development of P-Y Curves for Analysis of laterally Loaded Piles in Western Washington, Final Report April 1988. 
+
+```{=latex}
+\coverpageHeader{Holds} 
+``` 
+
+* n/a 
+
+
+{{< pagebreak >}}
+
+<!-- add TOC using latex -->
+```{=latex}
+\tableofcontents
+```
+{{< pagebreak >}}
+
+
+```{julia}
+#| echo: false
+#| output: false
+using Pkg
+Pkg.activate(".")
+```
+
+```{julia}
+#| echo: false
+#| output: false
+# using Pkg
+# Pkg.activate(".")
+using Pkg, Unitful, DataFrames, CSV, XLSX, Plots, Unitful.DefaultSymbols, Plots, QuadGK, Revise
+# PackageSpec(path=raw"C:\\Users\\Josua\\Juliarepo\\MyUnits/")  
+using MyUnits, MyHelper, WindLoadModule, SeismicLoadModule, FootingModule, ConcreteModule, Piles
+```
+
+# Loads 
+
+## Dead load
+
+### cladding weight
+
+```{julia}
+# for 1200 and 600 spacing
+γpur = 3.59kgf / m ./ [1.2, 0.6]m .|> kPa .|> f3
+
+# for 0.48BMT roof sheeting
+γclad = 5kgf / m^2 |> kPa
+
+Gclad = γclad .+ γpur
+```
+
+![](images/Gstruct.png)
+
+
+### Roof live load
+
+- 0.25kPa for roof live load
+
+![](images/QRLL.png)
+
+## Wind load - Y
+
+wind parameters
+
+```{julia}
+#| label: wind param
+# Vo = operating wind speed
+href = 4.5m
+wp = AS1170WindParam(; Ruls=500yrs, Rsls=25yrs, Region="C", href=href, cat=2.0, Ms=1.0, Mt=1.0, Vo=20m / s)
+printlnstruct(wp)
+```
+
+```{julia}
+b = 30.8m
+d = 21.6m
+# α = 5°
+α = atand(567 / 10825)°
+bldg_yy = AS1170_2_BldgParams(b, d, href, α);
+```
+
+### Load pitched free roof, blocked under
+
+```{julia} 
+Cpw_yy, Cpl_yy = fCpw_pitched_free_roof(bldg_yy; isEmpty=false, isUplift=true)
+```
+
+```{julia}
+# on windward side
+Ka = fKa_roofandside(6m * 4m) # assume tributary area for a single footing
+Cpe = Cpw_yy
+# load on roof
+bw = 3.65m
+lw = 6.77m
+wu = fWindForceRoofExternal(wp.pressure, Cpw_yy, bw, lw; Kce=1.0, kl=1.0)
+wu
+```
+
+```{julia}
+# on leeward side
+wu = fWindForceRoofExternal(wp.pressure, Cpl_yy, bw, lw; Kce=1.0, kl=1.0)
+wu[1] / lw
+```
+
+### Frictional drag
+
+For h < b
+
+```{julia}
+area = (bldg_yy.b + 2 * href) * (bldg_yy.d - 4 * href) # area of building
+```
+
+```{julia}
+Cf = 0.04 # table 5.9, AS 1170.2
+Fw = Cf * wp.pressure * area / 8 / 20.25m |> kN / m # equally distributed to roof rafters 
+```
+
+## Wind on open section, individual member
+
+```{julia} 
+vD = [150]mm
+fw = [fWindForceOpenSec(wp, D, Cfig_overide=2.05) for D in vD]
+```
+
+![](images/Wuy.png)
+
+## Wind load X
+
+Cpe not critical in cross wind, use wind load Y.
+
+### Frictional drag
+
+```{julia}
+b = 21.6m
+d = 30.8m
+# α = 5°
+α = atand(567 / 10825)°
+bldg_xx = AS1170_2_BldgParams(b, d, href, α);
+```
+
+For h < b
+
+```{julia}
+area = (bldg_xx.b + 2 * href) * (bldg_xx.d - 4 * href) # area of building
+```
+
+```{julia}
+Cf = 0.04 # table 5.9, AS 1170.2
+Fw = Cf * wp.pressure * area / 8 / 20.25m |> kN / m # equally distributed to roof rafters 
+```
+
+![](images/Wux.png)
+
+
+# Space Gass Steel design
+
+## Design load ratio
+
+![](images/ratio_load.png){width="90%"}
+
+## Deflections
+
+By inspection of SG model results, deflections within span / 250, accept.
+
+![](images/deflectiions.png){width="90%"}
+
+
+# Design of purlins
+
+## Where kl=1.0
+```{julia}
+spacing = 1.2m;
+loadwidth = spacing
+kl = 1.0
+puw0 = kl * Cpw_yy * wp.pressure * loadwidth |> kN / m
+```
+
+## where area is RA1 or RA3
+
+
+```{julia} 
+loadwidth = spacing
+span = 3.65m
+kl = fKl(a=bldg_yy.a_roofs, loadwidth=loadwidth, span=span, symbol=:RA1)
+```
+
+```{julia}
+puw1 = kl * Cpw_yy * wp.pressure * loadwidth |> kN / m
+```
+
+
+## where area is RA2 or RA4
+
+
+```{julia} 
+loadwidth = spacing
+span = 3.65m
+kl = fKl(a=bldg_yy.a_roofs, loadwidth=loadwidth, span=span, symbol=:RA2)
+```
+
+```{julia}
+puw2 = kl * Cpw_yy * wp.pressure * loadwidth |> kN / m
+```
+
+
+## where area is RC1
+
+```{julia}
+loadwidth = spacing / 2
+span = 3.65m
+kl = fKl(a=bldg_yy.a_roofs, loadwidth=loadwidth, span=span, symbol=:RC1)
+```
+
+```{julia}
+puw3 = kl * Cpw_yy * wp.pressure * loadwidth |> kN / m
+```
+
+```{julia}
+puw0, puw1, puw2, puw3
+```
+
+![](images/15015_threelappedspan.png)
+
+![](images/15019_singlespans.png)
+
+
+purlin summary:
+
+- Use 15015 three-lapped-span @ 1200mm, 1 bridging, 
+- use 15019 at RC1, RC2 areas @ 600mm, 1 bridging, noted on design sketches
+
+
+# 300dia pile p-y curve
+
+```{julia}
+soil = HyperbolicSand(ϕi=30.0°, γ=18kN / m^3, Dr=40)
+pile2m = Pile(D=300mm, E=30000MPa, L=2.0m)
+
+get_pile_springs(soil, pile2m; zstart=0.15m,
+    vy=2mm:2mm:20mm,
+    support_node_spacing=0.3m)
+```
+
+```{julia}
+#| echo: false
+#| output: false
+# write vk into xlsx file
+df2csv(vk)
+``` 
+
+# 450dia pile p-y curve
+
+```{julia}
+pile4m = Pile(D=450mm, E=30000MPa, L=4.8m)
+
+fwrite_p_y_curves_csv(soil, pile2m; zstart=0.15m,
+    vy=2mm:2mm:20mm,
+    support_node_spacing=0.3m,
+    relativefilepathname="csv/pycurves_4mpile.csv")
+```
+
+```{julia}
+#| echo: false
+#| output: false
+# write vk into xlsx file
+df2csv(vk, "csv/out_4mpile.csv")
+``` 
+
+# Pile Uplift capacity Check, short 2m piles
+
+![](images/uplift_2mpile.png){width="90%"}
+
+```{julia}
+α_p = 25kPa # allowable shaft adhesion
+Lp = pile2m.L - 300mm
+D = pile2m.D
+ϕg = 0.45 # refer geotech report
+ϕRd_skinfriction = 2.5 * ϕg * π * D * Lp * α_p |> kN |> f2
+```
+
+```{julia}
+# SANITY CHECK
+# check conefailure 
+γsoil = 18kN / m^3
+ϕi = 35°  # assumef for clayey gravel
+ρ = 45° + ϕi / 2 # failure plane
+μ = tand(ϕi) # friction coefficient at failure plane
+σv_mean = 1 / 2 * Lp * γsoil * tand(90° - ρ) # mean normal stress at failure plane
+
+Dcone = Lp * tand(ρ) + D
+R = Dcone / 2
+r = D / 2
+l = sqrt((R - r)^2 + Lp^2)
+Asurf = π * (R + r) * l
+
+ϕPile_weight = 0.9 * (π / 4 * D^2 * Lp * 24kN / m^3) |> kN |> f2
+
+function fdA(z)
+    # Returns the infinitesimal area dA along the side of a truncated cone at height z
+    # R: base radius, r: top radius, Lp: height of truncated cone
+    # z: vertical position from base (0 <= z <= Lp)
+    # Linear interpolation for radius at height z 
+    rz = r + (R - r) * (z / Lp)
+    # Slant height at z
+    # lz = sqrt((R - r)^2 + Lp^2) * (z / Lp)
+    # Circumference at z
+    cz = 2π * rz
+    # Infinitesimal area dA = circumference * dz / cos(theta)
+    # where cos(theta) = Lp / sqrt((R - r)^2 + Lp^2)
+    cosθ = Lp / sqrt((R - r)^2 + Lp^2)
+    return cz / cosθ
+end
+
+# ϕRd_conefailure = ϕPile_weight + ϕg * μ * σv_mean * Asurf |> kN |> f2
+```
+
+```{julia}
+Rd_conefailure, err = quadgk(z -> fdA(z) * γsoil * z * tand(ϕi) / cosd(ρ), 0.0m, Lp, rtol=1e-9)
+ϕRd_conefailure = ϕg * Rd_conefailure
+
+# weight of cone
+ϕRd_coneweight = ϕPile_weight + 0.75 * (1 / 3 * π * Lp * (R^2 + R * r + r^2) - (π / 4 * D^2 * Lp)) * γsoil |> kN |> f2
+
+#summary of capacities, and minmum to govern
+ϕRd_skinfriction, ϕRd_conefailure, ϕRd_coneweight, min(ϕRd_skinfriction, ϕRd_conefailure, ϕRd_coneweight)
+```
+
+maximum uplift reaction, 35kN less than ULS limit, 45kN; PASS. 
+
+
+# Pile Uplift capacity Check, short 4m piles
+
+![](images/uplift_4mpile.png){width="90%"}
+
+```{julia}
+α_p = 25kPa # allowable shaft adhesion
+Lp = pile4m.L - 300mm
+D = pile4m.D
+ϕg = 0.45 # refer geotech report
+ϕRd_skinfriction = 2.5 * ϕg * π * D * Lp * α_p |> kN |> f2
+```
+
+```{julia}
+# SANITY CHECK
+# check conefailure 
+γsoil = 18kN / m^3
+ϕi = 35°  # assumef for clayey gravel
+ρ = 45° + ϕi / 2 # failure plane
+μ = tand(ϕi) # friction coefficient at failure plane
+σv_mean = 1 / 2 * Lp * γsoil * tand(90° - ρ) # mean normal stress at failure plane
+
+Dcone = Lp * tand(ρ) + D
+R = Dcone / 2
+r = D / 2
+l = sqrt((R - r)^2 + Lp^2)
+Asurf = π * (R + r) * l
+
+ϕPile_weight = 0.9 * (π / 4 * D^2 * Lp * 24kN / m^3) |> kN |> f2
+```
+
+```{julia}
+Rd_conefailure, err = quadgk(z -> fdA(z) * γsoil * z * tand(ϕi) / cosd(ρ), 0.0m, Lp, rtol=1e-9)
+ϕRd_conefailure = ϕg * Rd_conefailure
+
+# weight of cone
+ϕRd_coneweight = ϕPile_weight + 0.75 * (1 / 3 * π * Lp * (R^2 + R * r + r^2) - (π / 4 * D^2 * Lp)) * γsoil |> kN |> f2
+
+#summary of capacities, and minmum to govern
+ϕRd_skinfriction, ϕRd_conefailure, ϕRd_coneweight, min(ϕRd_skinfriction, ϕRd_conefailure, ϕRd_coneweight)
+```
+
+maximum uplift reaction, 27kN less than ULS limit, 119kN; PASS. 
+
+# Pile compression check
+
+![Pile compression load](images/reaction_piles.png)
+
+by inspection, least skin friction capacity (2m pile) is 45kN > maximum bearing load of 23kN, pass. 
+
+# Pile top deflection
+
+![](images/def_pile_max.png)
+
+The top lateral deflection is 1.6mm < about 4mm where pile lateral deflection is within elastic range (eye balled from p-y curve), accept
+
+
+# Pile reinforcement design, 4m pile
+
+![pile max moment](images/Mu_pile.png)
+
+```{julia}
+fc = 32MPa
+fy = 500MPa
+Ab = 1 / 4 * (20mm)^2
+D = 450mm
+cover = 75mm
+d = D - cover
+rcpile = AS3600ColCircSection(8, Ab, D, d, fc, fy)
+struct_to_dict(rcpile)
+```
+
+```{julia}
+#| echo: false
+#| output: false
+rcpile.concrete_section.plot_section(filename="images/rcpile_crossection.png")
+```
+
+![](images/rcpile_crossection.png) 
+
+interaction diagram of pile
+```{julia}
+vMu = [31]kNm
+vNu = [-36]kN # -ve tension
+fplot_interaction_diagram(rcpile, vMu, vNu, ; theta=0.0°, npoints=100, plot_width=600)
+```

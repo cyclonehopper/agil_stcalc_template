@@ -1,0 +1,313 @@
+---
+engine: julia
+execute: 
+  cache: false 
+julia:
+  env: ["QUARTO_JULIA_PROJECT=."]
+mainfont: Lato
+fig-align: center
+format:
+  agil_stcalc_template-typst: default
+company: Agilitus
+client: Glencore
+proj_no: 26016
+proj_title: Glencore Port C2A Conveyor Relocation Engineering
+calc_no: 26016-ST-CAL-0003
+calc_title: Retaining wall check
+proj_phase: Detailed Design
+logo_company: "images/logo-agilitus.png"
+logo_client: "images/logo-MIM-glencore.png"
+revisions:
+- rev_no: A
+  rev_date: today
+  rev_desc: IFIR 
+  rev_prep: Josua A
+  rev_check: F. Hakim
+  rev_app:  
+---
+
+```{=typst}
+#like_header("Calculation Objective / Scope")
+```
+* Check existing retaining wall stability
+
+
+```{=typst}
+#like_header("Calculation Assumptions")
+```
+* Allowable bearing pressure, 200kPa (assumed, after years of preloading, considering its a granular fill based on the geotech report)
+
+
+```{=typst}
+#like_header("Software Used")
+```
+* n/a
+
+```{=typst}
+#like_header("Holds")
+```
+* n/a
+
+{{< pagebreak >}}
+
+```{=typst}
+#block(above: 2em, below: 2em)[
+    #outline(
+      title: [Table of Contents],
+      depth: 3,
+      indent: auto
+    );
+    ]
+```
+
+{{< pagebreak >}}
+
+```{julia}
+#| label: Usings
+#| echo: false
+#| output: false
+
+import Pkg
+Pkg.activate(".")
+
+using Unitful, Unitful.DefaultSymbols
+using MyUnits, RetWalls, SoilModule, ConcreteModule
+using MyHelper: _println
+```
+
+# Introduction
+
+## Basis of Design									
+
+In general, design shall be in accordance with AS 4678 and other relevant standards.
+
+## Design Standards and Codes
+
+Unless specifically noted, the design complies with Australian Standards and selected international standards as listed in the Design Criteria. The following summarises the key standards used in producing this calculation:
+
+* AS 1170.0 - 2002		Structural design actions - Part 0: General principles
+* AS 1170.1 - 2002		Structural design actions - Part 1: Permanent, imposed and other actions   
+* AS 1170.4 - 2002		Structural design actions - Part 4: Earthquake actions  
+* AS 4678 - 2002		Retaining structures
+* AS 3600 - 2018		Concrete structures
+
+## Other Referenced Documents
+
+- Report on Geotechnical Investigation, Proposed Concentrate Storage Shed Extension, September 2009. (pdf filename: 50805 - PORT OF TOWNSVILLE, Proposed Shed Extension, Ernest Henry Mining)
+
+## Bulk Material
+
+* Bulk material density, 1900kg/m3 (Zinc concentrate) and 2530kg/m3 (Lead concentrate). 
+* Bulk material angle of friction, 30 to 60 degrees.
+* backfill slope is 36 degrees, as per Navis model, which refers to the most critical scenario given the limit on stockpile height.
+
+## Methodology
+
+Calculate wall stability according to AS4678 by manual calculation. The stability analysis is carreid out for the range of friction angles. The backfill surface is kept constant, per Navis model.
+ 
+# Wall dimensions
+
+<!-- some double column figures -->
+::: {#fig-builtup_loads layout-ncol=2}
+
+![Stockpile height](images/backfill_geometry_stockpile_height.png){width="350"}
+
+![Backfill at Wall height](images/backfill_geometry_wall_height.png){width="350"}
+
+![Backfill slope](images/bakfill_slope.png){width="350"}
+
+Backfill details
+:::
+
+
+![Reinforced wall details](images/rc_wall_details.png){#fig-rc_wall_details width="400"}
+
+```{julia} 
+#|output: false 
+T_footing = 0.45m
+H_wall = 5950mm - T_footing # from drg 595-3-5880
+
+H_wall_above_floor = 5.392m # as measured in scan, top of wall to floor level
+H_backfill_from_floor = 4.1m # as measured in scan
+H_floor_to_tof = H_wall - H_wall_above_floor
+
+H_backfill = H_backfill_from_floor + H_floor_to_tof
+B_footing = 4m
+Tw_bottom = 0.45m
+Tw_top = 0.2m
+X_frontwallface = 0.4m
+H_soil_on_toe = H_floor_to_tof
+Fill_slope = (atand(3858 / 5350))° |> f2  # refer figure above
+d_peak_slope = 5350mm # distance from wall to peak of slope
+```
+
+# Overturning Stability and Bearing Check 
+
+Define foundation soil:
+
+```{julia} 
+q_allow_drained = 200kPa  # taken as current, given years of preloading.
+subsoil = Soil_AS4678(; γ=18kN / m^3, ϕi=30.0°, Φn=1.0, Φd=0.9, Φuϕ=0.85)
+```
+
+Define backfill material and wall object, no partial factors.
+
+```{julia}
+backfills = [Soil_AS4678(; γ=2530kgf / m^3, ϕi=ϕ * 1°, δ=ϕ * 1°, Φn=1.0, Φd=1.0, Φuϕ=1.0) for ϕ in 30:1:60]
+retwalls = [CantileverRetWall(B_footing=B_footing, H_wall=H_wall, H_backfill=H_backfill, T_footing=T_footing, Tw_bottom=Tw_bottom, Tw_top=Tw_top, X_frontwallface=X_frontwallface, H_toesoil=H_soil_on_toe, β=Fill_slope, subsoil=subsoil, backfill=backfill, A=0.0m, B=d_peak_slope) for backfill in backfills];
+```
+
+```{julia}
+# using unfactored material parameters
+LF_wsd = LoadFactors(γDC=1.0,
+    γEV=1.0, # vertical component of earth pressure
+    γEH=1.0, # horizontal component of earth pressure
+    γEQE=0.0 # earthquake load
+)
+wall_actions = [fWallStability(retwall, LF_wsd) for retwall in retwalls];
+
+σvs = [t.σv for t in wall_actions]
+(σvs_max, i) = findmax(σvs)
+println(wall_actions[i].calc_details)
+```
+
+Critical backfill data the produces the highest bearing pressure:
+
+```{julia}
+#| echo: false 
+display(_println(backfills[i]))
+```
+
+```{julia}
+#| echo: false 
+plot_retwall_geometry(retwalls[i], wall_actions[i].ρa)
+```
+
+THe maximum bearing pressure is `{julia} (σvs_max |> f2)`, `{julia} σvs_max ≤ q_allow_drained ? "≤ $(q_allow_drained), PASS" : " > $(q_allow_drained) FAIL"`
+
+# Sliding Check
+- wall is locked in by slab, no further analysis for sliding is required.
+
+# Wall reinforcement check  
+
+Define backfill material and wall object, with typical insitu material partial factors:
+
+```{julia}
+backfills_uls = [Soil_AS4678(; γ=2530kgf / m^3, ϕi=ϕ * 1°, δ=ϕ * 1°, Φn=1.0, Φd=0.9, Φuϕ=0.85) for ϕ in 30:1:60]
+
+retwalls_uls = [CantileverRetWall(B_footing=B_footing, H_wall=H_wall, H_backfill=H_backfill, T_footing=T_footing, Tw_bottom=Tw_bottom, Tw_top=Tw_top, X_frontwallface=X_frontwallface, H_toesoil=H_soil_on_toe, β=Fill_slope, subsoil=subsoil, backfill=backfill, A=0.0m, B=d_peak_slope) for backfill in backfills_uls];
+```
+
+## Load combination case 1: Dead + Live loads, no seismic:
+
+Apply load factors for ULS methods:
+
+```{julia}
+LF_uls = LoadFactors(γDC=1.2,
+    γEV=1.2, # vertical component of earth pressure, 1.2 instead of 1.5 per AS 4678.
+    γEH=1.2, # horizontal component of earth pressure
+    γEQE=0.0 # earthquake load
+)
+
+# determine design actions to be used later.
+wall_actions_uls = [fWallStability(retwall, LF_uls;) for retwall in retwalls_uls];
+```
+
+## Load combination case 1: Dead + Live loads + seismic:
+
+```{julia}
+kp = 1.0
+Z = 0.09 # hazard factor for site, same as peak groundacceleration
+a = kp * Z # peak ground acceleration
+
+ah = 0.5 * a # Appendix I.13.a AS4678
+az = 0.0
+
+# where amplification in the strucutre is not relevant 
+kh = ah # I14(3)
+kv = 0.0; # I14(4)
+
+LF_uls_seismic = LoadFactors(γDC=1.0,
+    γEV=1.0, # vertical component of earth pressure, 1.2 instead of 1.5 per AS 4678.
+    γEH=1.0, # horizontal component of earth pressure
+    γEQE=1.0 # earthquake load
+)
+
+wall_actions_uls_seismic = [fWallStability(retwall, LF_uls_seismic; kh=kh) for retwall in retwalls_uls];
+```
+
+## Shear and moment calculation
+
+Combine results for seismic and non seismic cases, and find critical case for moment and shear
+
+```{julia}
+retwall_all = vcat(retwalls_uls, retwalls_uls)
+wall_actions_all = vcat(wall_actions_uls, wall_actions_uls_seismic)
+
+y = 0m  # critical moment, from top of footing 
+res_vm = [fWallShearandMoment(y, retwall, shear_and_moment) for (retwall, shear_and_moment) in zip(retwall_all, wall_actions_all)]
+Mu = [t.my for t in res_vm]
+Vu = [t.vy for t in res_vm]
+
+Mu_max, i_max = findmax(Mu)
+Vu_max = Vu[i_max]
+println(wall_actions_all[i_max].calc_details)
+```
+
+```{julia}
+#| echo: false
+println(res_vm[i_max].calc_details)
+```
+
+
+Define concrete section/capacity:
+
+```{julia}
+D = retwalls[1].Twbot
+γc = 24.0kN / m^3;
+db = 20mm;
+Ast = π / 4 * db^2;
+# cover to centre of rebar
+cc = 50mm + 1.5 * db;
+d = D - cc;
+# shear ties
+Asv_per_tiespacing = 0.0mm;
+
+# define slab, in multiple of bar spacing, 960mm = 8 x 120mm
+rc_wall = AS3600RectSection(fc=32MPa, fy=500MPa, b=0.96m, d=d, D=D, nbb=8, Abb=Ast, nbt=5, Abt=Ast)
+rc_wall.concrete_section.plot_section(filename="images/rc_wall_sec.png");
+```
+
+![](images/rc_wall_sec.png){width="50%"} 
+ 
+```{julia}
+#| echo: false
+Mdes_rc, str_o = fdesign_beam_moment(rc_wall, Mu=Mu_max)
+println(str_o)
+```
+
+For shear, max taken at d distance from top of footing:
+
+```{julia}
+y = 450mm  # critical moment, from top of footing for shear
+res_vm = [fWallShearandMoment(y, retwall, shear_and_moment) for (retwall, shear_and_moment) in zip(retwalls_uls, wall_actions_uls)]
+Mu = [t.my for t in res_vm]
+Vu = [t.vy for t in res_vm]
+
+Mu_max, i_max = findmax(Mu)
+Vu_max = Vu[i_max]
+println(wall_actions_uls[i_max].calc_details)
+```
+
+```{julia}
+#| echo: false
+println(res_vm[i_max].calc_details)
+```
+
+```{julia}
+#| echo: false
+u, str_o = fdesign_beam_shear(rc_wall, Vu_max, Mu_max, 0kN / m; override_ks=false, ignore_min=true)
+println(str_o)
+``` 
+
+

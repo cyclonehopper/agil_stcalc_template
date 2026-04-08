@@ -226,12 +226,11 @@ k2 = fk2(ncycles)  # factor for load repititions
 
 Design by chart @fig-interior-loading
 
-![Axle loads - Interior loading](images/interior_loading_thicknes_chart.png){#fig-interior-loading}
+![Chart 1.1 Axle loads - interior loading](../../../julia_repo/agil_stcalc_template/images/T48/chart_1.1_internal_slab_thickness_design.png){#fig-interior-loading}
 
 ```{julia}
 #| echo: false
 tslab_interior, notes = fdesign_slab_interior(Paxle=Paxle, k1=k1, k2=k2, fc=fc, Ess=Ess, tread=s_wheel, Hsoil=Hsoil, isWheelLoad=true)
-
 println(notes)
 ```
 
@@ -246,7 +245,7 @@ tslab_interior = roundto(tslab_interior, 250mm)
 
 Design by chart @fig-fig-edge-loading
 
-![Axle loads - Edge loading](images/edge_loading_thicknes_chart.png){#fig-edge-loading}
+![Chart 1.2 Axle loads - edge loading](../../../julia_repo/agil_stcalc_template/images/T48/chart_1.2_edge_slab_thickness_design.png){#fig-edge-loading}
 
 ```{julia}
 #| echo: false

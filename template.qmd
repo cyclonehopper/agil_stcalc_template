@@ -1,5 +1,9 @@
 ---
-engine: julia 
+engine: julia
+julia: 
+  env: 
+    - JULIA_CONDAPKG_BACKEND = Null
+    - JULIA_PYTHONCALL_EXE = /home/ubuntu/julia_repo/python_venv/bin/python3
 execute:
   cache: true
 format:
@@ -71,6 +75,8 @@ revisions:
 
 import Pkg
 Pkg.activate(".")
+ENV["JULIA_PYTHONCALL_EXE"] = "/home/ubuntu/julia_repo/python_venv/bin/python3"
+ENV["JULIA_CONDAPKG_BACKEND"] = "Null"
 
 using Unitful, Unitful.DefaultSymbols, DataFrames, Plots
 using MyUnits, WindLoadModule, MyHelper

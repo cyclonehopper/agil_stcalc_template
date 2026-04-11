@@ -241,7 +241,7 @@ tslab_interior = roundto(tslab_interior, 250mm)
 ```
 
 
-# Edge slab desgin by nomograph, CCAA T48
+# Edge slab design by nomograph, CCAA T48
 
 Design by chart @fig-fig-edge-loading
 

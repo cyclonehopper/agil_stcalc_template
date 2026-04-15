@@ -175,11 +175,16 @@
 
 
   // Reset figure counters at each level 1 heading
+  // IMPORTANT: Quarto uses string-based kinds ("quarto-float-fig", "quarto-float-tbl"),
+  // not the built-in `image` and `table` types. The quarto_super function reads
+  // counter(figure.where(kind: kind)).get().first() + 1 to compute n-super,
+  // so we must reset the correct counter to keep section-based numbering working.
   show heading.where(level: 1): it => {
-    counter(figure.where(kind: image)).update(0)
-    counter(figure.where(kind: table)).update(0)
+    counter(figure.where(kind: "quarto-float-fig")).update(0)
+    counter(figure.where(kind: "quarto-float-tbl")).update(0)
     it
   }
+
 
   place(
     bottom,

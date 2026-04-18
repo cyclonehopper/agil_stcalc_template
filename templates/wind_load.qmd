@@ -1,0 +1,198 @@
+## Wind load
+
+### Wind regional parameters
+
+```{julia}
+href = 12.5m + 8m / 2
+wp_uls = AS1170WindParam(; Ruls=500yrs, Rsls=25yrs, Region=:C, href=href, cat=1.0, Ms=1, Mt=1, Vo=25m / s)
+_println(wp_uls)
+```
+
+### Building Openings
+
+#### Roof openings
+
+```{julia}
+A_open_roof = 23 * π / 4 * (1.2m)^2
+```
+
+#### East wall openings
+
+![](images/opening_east.png)
+
+```{julia}
+A1 = 2 * (1.8m)^2 # 2 doors in shed 2
+A2 = 46m^2 # for roller door
+A3 = 2.6m * (56m + 5.5m) # area between top of retainging wall and cladding bottom edge
+A_open_east = sum([A1, A2, A3])
+```
+
+#### West wall openings
+
+![opening, tippler side](images/opening_west_tippler.png)
+![Opening, gap between retaining wall, and cladding](images/opening_west_ret_walls.png)
+![Opening, truck bay door](images/opening_truckbay.png)
+
+```{julia}
+A4 = (3 + 2)m^2 # 2 doors in tippler building
+# opening between the gap  of the retaining wall and cladding bottom edge, grid 1-12, 24-27
+A5 = 1.7m * (10 * 8m + 6m * 2 + 2 * 8m)
+A6 = 140m^2 # truck bay door
+A_open_west = sum([A4, A5, A6])
+```
+
+#### North wall openings
+
+```{julia}
+A7 = (7 + 2 + 2 + 8)m^2
+A8 = 1.7m * 35m # area between top of retainging wall and cladding bottom edge, shed 1
+A9 = 2.6m * (43.6m) # area between top of retainging wall and cladding bottom edge, shed 3
+A_open_north = sum([A7, A8, A9])
+```
+
+#### South wall openings
+
+![Opening A10](images/opening_south_shed1.png)
+
+![Door, shed 2](images/opening_south_door_shed2.png)
+
+```{julia}
+# shed 1 door, see drg 595-4-5541
+A10 = 44m^2
+
+# area between top of retainging wall and cladding bottom edge, shed 1
+A11 = 1.7m * (15.6m)
+
+# shed 2 door, see drg 595-4-5548
+A12 = 44m^2
+A_open_south = sum([A10, A11, A12])
+```
+
+```{julia}
+vA_opening = [A_open_roof, A_open_north, A_open_east, A_open_south, A_open_west]
+```
+
+### Wind +Y (east-west)
+
+building dimension for purposes of wind load calculation
+
+```{julia}
+B = 43.6m + 31m + 15.6m |> f2
+L = 204m;
+B, L
+```
+
+#### Downward critical roof wind load
+
+For shed 2 or shed 3 roof pressures, external
+
+```{julia}
+b = L |> f2
+d = B |> f2
+α = 20°
+bldg_yy_shed23 = AS1170_2_BldgParams(wp_uls, b, d, href, α; Ao_roof=A_open_roof, Ao_north=A_open_north, Ao_east=A_open_east, Ao_south=A_open_south, Ao_west=A_open_west)
+```
+
+Uniform line load for the rafter, upwind face
+
+```{julia}
+#| echo: false 
+res_rafter_shed23_upwind = fwind_rafter(bldg_yy_shed23,
+    wind_dir=:E,
+    isUplift=false,
+    isUpwind=true,
+    bw=8.0m,
+    lw=23m,
+    x_from_windward_edge=0m)
+_println(res_rafter_shed23_upwind)
+```
+
+
+Uniform line load for the rafter, downwind face, shed 2/3
+
+```{julia}
+#| echo: false 
+res_rafter_shed23_downwind = fwind_rafter(bldg_yy_shed23;
+    wind_dir=:E,
+    isUplift=false,
+    isUpwind=false,
+    bw=8.0m,
+    lw=23m,
+    x_from_windward_edge=43.0m)
+_println(res_rafter_shed23_downwind)
+```
+
+For shed 1 rafter, uniform line load for the rafter, downwind face
+
+```{julia} 
+α = 3.0°
+bldg_yy_shed1 = AS1170_2_BldgParams(wp_uls, b, d, href, α; Ao_roof=A_open_roof, Ao_north=A_open_north, Ao_east=A_open_east, Ao_south=A_open_south, Ao_west=A_open_west)
+
+fcpe(t) = fCpe_roof(bldg_yy_shed1; x=t, isUplift=false, isUpwind=false)
+t = 0m:1m:90.2m
+plot(t, fcpe.(t))
+```
+
+```{julia}
+#| echo: false 
+res_rafter_shed1 = [fwind_rafter(bldg_yy_shed1;
+    wind_dir=:E,
+    isUplift=false,
+    isUpwind=false,
+    bw=8.0m,
+    lw=46m,
+    x_from_windward_edge=x) for x in href * [3, 4]]
+# _println(res)
+loads = [t.load for t in res_rafter_shed1]
+DataFrame("Distance from windward edge" => [3, 4] .* href, "Load" => loads)
+```
+
+```{julia}
+res = get_bldg_wind_load(bldg_yy_shed23;
+    wind_dir_meteo=:E,
+    bldg_face=:U,
+    isUplift=false,
+    x_to_ridge=23m,
+    bw=8.0m,
+    lw=46m,
+    x_range=[0m, 46m])
+display(res.plot)
+println(res.calc_details)
+```
+
+
+#### Windward wall wind load
+
+```{julia}
+#| echo: false 
+res_ww = fwindwardwall(wp_uls,
+    bldg_yy_shed23;
+    wind_dir=:E,
+    isUplift=false,
+    bw=8.0m,
+    lw=12m,
+    Ao_roof=A_open_roof,
+    Ao_north=A_open_north,
+    Ao_east=A_open_east,
+    Ao_south=A_open_south,
+    Ao_west=A_open_west)
+_println(res_ww)
+```
+
+#### Leeward wall wind load
+
+```{julia}
+#| echo: false 
+res_lw = fwindleewall(wp_uls,
+    bldg_yy_shed23;
+    wind_dir=:E,
+    isUplift=false,
+    bw=8.0m,
+    lw=12m,
+    Ao_roof=A_open_roof,
+    Ao_north=A_open_north,
+    Ao_east=A_open_east,
+    Ao_south=A_open_south,
+    Ao_west=A_open_west)
+_println(res_lw)
+```

@@ -1,0 +1,53 @@
+# Design of purlins 
+
+## Purlin capacity from Lysaght
+
+![Lysaght capacity, double-lapped span](images/Z20019_cap.png){width="90%" #fig-lysaght-capacity}
+
+## Purlin loads
+
+```{julia}
+des_purlin=get_purlin_wind_load(bldg_yy; # bldg_yy is from previous step
+    wind_dir_meteo=:E,
+    isUplift=true,
+    s_purlin=1.2m, # spacing of purlins
+    L_purlin=5.5m, # supported span of purlins
+    loaded_surfaces=[:Roof, :Internal],
+    kv=1.0, # assumed 1.0
+    );
+```
+
+```{julia}
+#| echo: false
+println(des_purlin.calc_details)
+```
+
+## Design of purlins, overhang
+ 
+```{julia}
+loadwidth_purlin=1.2m 
+span_overhang = 1.4m
+kl_rc1_overhang = fKl(a=bldg_yy.a_roofs, loadwidth=loadwidth_purlin, span=span_overhang, symbol=:RC1)
+
+fw = [fwind_purlin(bldg_yy;
+          wind_dir=:E,
+          isUplift=true,
+          isUpwind=true,
+          bw=loadwidth_purlin,
+          lw=span_overhang,
+          x_from_windward_edge=0m,
+          loaded_surfaces=[:Roof, :Internal],  
+          kl=kl,
+          kv=1.0).load |> kN_per_m |> f2 for kl in [kl_rc1_overhang]]
+```
+
+
+From @fig-lysaght-capacity, with 1 bridging, maximum capacity is 4.88kN/m > load, pass.
+
+## Space gass design for overhanging purlin
+
+![Purlin design ratio < 1.0, pass according to AS4600.](images/design_ratio_purlinZ20019.png)
+
+purlin summary:
+
+- Use Z20019 double-lapped-span @ 1200mm, 1 bridging

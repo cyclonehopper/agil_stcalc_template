@@ -73,12 +73,10 @@ revisions:
 #| label: Usings
 #| echo: false
 #| output: false
-# 1. Force PythonCall to your specific venv path
-ENV["JULIA_PYTHONCALL_EXE"] = "/home/ubuntu/julia_repo/python_venv/bin/python"
-ENV["JULIA_CONDAPKG_BACKEND"] = "Null"
 
+dir = @__DIR__
 import Pkg
-Pkg.activate(".")
+Pkg.activate(dir)
 
 using Unitful, Unitful.DefaultSymbols, DataFrames, Plots
 using MyUnits, WindLoadModule, MyHelper

@@ -198,12 +198,9 @@ Impact loading scenarios
 ```
 
 ```{=typst}
-#let pdf-file = "raw_pdf/25068-ST-SKH-0005_A Flot cell strcuture cable ladders.pdf"
+#let pdf-file = "raw_pdf/25068-ST-SKH-0005_A Flot cell structure cable ladders.pdf"
 #let n-pages = 4 // Set the total number of pages here
-#for i in range(1, n-pages + 1) [
-  // for ideastatica, use 90% scaling
-  #image(pdf-file, page: i, width: 85%)
-]
+#for i in range(1, n-pages + 1) [#image(pdf-file, page: i, width: 95%)]
 ```
 
 ```{=typst}
@@ -219,5 +216,4 @@ Impact loading scenarios
   // for ideastatica, use 90% scaling
   #image(pdf-file, page: i, width: 98%)
   #image(pdf-file2, page: i, width: 98%)]
-
 ```

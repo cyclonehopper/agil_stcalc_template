@@ -4,7 +4,7 @@ julia:
   env:
     - JULIA_CONDAPKG_BACKEND=Null
     - QUARTO_JULIA_PROJECT= .
-    - JULIA_PYTHONCALL_EXE = /home/ubuntu/julia_repo/python_venv/bin/python3
+    - JULIA_PYTHONCALL_EXE = /home/ubuntu/julia_repo/python_env/bin/python
 execute:
   cache: true
 format:
@@ -159,8 +159,10 @@ Roof dead load, reproduced from 22131-ST-CAL-0001
 # Drawings
 This calculation covers the structural components on the drawings and/or sketches listed in the following table:
 
+<!-- add column as below to left justify -->
+
 |Drawing Number|Drawing Title| Revision |
-|---------|----------|----------|
+|---------|:----------|----------|
 |0001|General Arrangement|A|
 |0002|Details 1|0|
 |0003|Details 2|C1|

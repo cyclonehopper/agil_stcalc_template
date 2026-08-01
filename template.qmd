@@ -85,9 +85,6 @@ using Unitful, Unitful.DefaultSymbols, DataFrames, Plots
 using MyUnits, WindLoadModule, MyHelper
 using MaterialModule, AS4100, AS4324_1, SeismicLoadModule
 using MyHelper: _println
-
-dir = @__DIR__
-
 ```
 
 # Introduction

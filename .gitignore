@@ -1,2 +1,9 @@
-/.cache/
-/template_files/
+/_extensions
+/.vscode
+/.cache
+/.CondaPkg
+/.venv
+/.env
+/.quarto
+
+*.vdoc.*

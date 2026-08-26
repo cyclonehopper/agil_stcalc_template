@@ -8,6 +8,3 @@ contributes:
       template-partials:
         - typst-template.typ
         - typst-show.typ
-      filters:
-        - logo-check.lua
-

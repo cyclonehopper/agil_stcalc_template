@@ -13,7 +13,15 @@
 // copied from Skane88, thanks Seane
 
 #let logo(logo_path: none) = {
-  if logo_path != none { [#image(logo_path)] } else { [] }
+  if logo_path != none {
+    if sys.file.exists(logo_path) {
+      [#image(logo_path)]
+    } else {
+      []
+    }
+  } else {
+    []
+  }
 }
 
 #let resolve_date(d) = {

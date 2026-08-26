@@ -1,4 +1,8 @@
 [deps]
+MyHelper = "cf8c9de2-d6b9-4f35-9c5e-913c95980b71"
+MyUnits = "abadc402-6f9d-4890-8dd5-a009c65c203c"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 QuartoNotebookRunner = "4c0109c6-14e9-4c88-93f0-2b974d3468f4"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
+WindLoadModule = "eaea037e-a0bc-4d5d-b113-2a8a78229692"

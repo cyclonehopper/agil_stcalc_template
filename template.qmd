@@ -81,7 +81,7 @@ ENV["JULIA_PROJECT"] = dir_proj
 import Pkg
 Pkg.activate(dir_proj)
 
-using Unitful, Unitful.DefaultSymbols, DataFrames
+using Unitful, Unitful.DefaultSymbols, DataFrames, Revise
 using MyUnits, WindLoadModule, MyHelper 
 ```
 

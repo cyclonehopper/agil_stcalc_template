@@ -28,28 +28,25 @@
   }
 }
 
-#let rev_table(max_items: 3, data) = {
-  // Build a revision table for the footer.
-  // If no. revisions > max_items only max_items-1 will be shown
-
-  data = data.rev()
-  // rev_data comes in last to first, but rev table in footer is
-  // latest on top.
-
-  if data.len() > max_items {
-    data = data.slice(0, max_items)
+// Revision rows for the document control table (latest on top). The current
+// (latest) revision gets a taller row so a signature can be applied below the
+// name; older revisions are collapsed to half height.
+#let doc_control_rows(data, border: 0.5pt + black, row_height: 12mm, vpad: 6pt) = {
+  let out = ()
+  if data != none and data.len() > 0 {
+    let d = data.rev()
+    for (i, rev) in d.enumerate() {
+      let h = if i == 0 { row_height } else { row_height / 2 }
+      out.push(table.hline(stroke: border))
+      out.push(block(height: calc.max(h - vpad, 0pt))[#rev.rev_no])
+      out.push(rev.rev_desc)
+      out.push(resolve_date(rev.rev_date))
+      out.push(rev.rev_prep)
+      out.push(rev.rev_check)
+      out.push(rev.rev_app)
+    }
   }
-
-  for rev in data {
-    (
-      rev.rev_no,
-      rev.rev_desc,
-      resolve_date(rev.rev_date),
-      rev.rev_prep,
-      rev.rev_check,
-      rev.rev_app,
-    )
-  }
+  out
 }
 
 #let disclaimer(company: "COMPANY", client: "CLIENT", proj_title: "SOME PROJECT") = {
@@ -213,7 +210,7 @@
         table.cell(colspan: 6)[#text(weight: "bold")[Document Control]],
         table.hline(stroke: border),
         [Revision], [Issue Reason], [Date], [Prepared], [Reviewed], [Approved],
-        ..rev_table(rev_data),
+        ..doc_control_rows(rev_data, border: border),
         table.hline(stroke: border),
         table.vline(x: 0, stroke: border),
         table.vline(x: 6, stroke: border),

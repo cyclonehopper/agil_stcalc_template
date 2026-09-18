@@ -16,7 +16,7 @@ proj_title: Glencore Port C2A Conveyor Relocation Engineering
 calc_no: 26016-ST-CAL-0002
 calc_title: C2A Permanent Installation Structural Design
 proj_phase: Detailed Design
-logo_company: "images/logo-agilitus.png"
+logo_company: "images/logo-agilitus-black.png"
 logo_client: "images/logo-MIM-glencore.png"
 revisions:
 - rev_no: A

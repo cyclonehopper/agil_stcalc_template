@@ -12,9 +12,9 @@
 
 // copied from Skane88, thanks Seane
 
-#let logo(logo_path: none) = {
+#let logo(logo_path: none, width: auto, height: auto) = {
   if logo_path != none {
-    [#image(logo_path)]
+    image(logo_path, width: width, height: height)
   } else {
     []
   }
@@ -114,6 +114,13 @@
     )
   }
 
+  // Latest revision values used in the header.
+  let last_rev = if rev_data != none and rev_data.len() > 0 { rev_data.last() } else { none }
+  let rev_prep = if last_rev != none { last_rev.rev_prep } else { none }
+  let rev_check = if last_rev != none { last_rev.rev_check } else { none }
+  let rev_no = if last_rev != none { last_rev.rev_no } else { none }
+  let rev_date = if last_rev != none { resolve_date(last_rev.rev_date) } else { none }
+
   set page(
     paper: paper,
     margin: (inside: 1.5cm, outside: 1.5cm, top: 6.5cm, bottom: 2.5cm),
@@ -130,30 +137,23 @@
     ],
     footer-descent: 30%,
     header: [
-      #set text(size: 0.8em)
-      #set table(stroke: 0.6pt)
+      #set text(font: "Arial", size: 8.5pt, hyphenate: false)
+      #set par(justify: false)
+      #set table(stroke: (paint: black, thickness: 0.6pt))
       #table(
-        columns: (1.5fr, 3.5fr, 1.3fr, 1.6fr),
-        rows: (1.5cm, 0.5cm, 0.5cm, 0.5cm),
+        // Matches the Agilitus calculation pad (xlsx): 36-unit grid
+        // 5 | 9 | 4 | 3 | 4 | 4 | 7
+        columns: (5fr, 9fr, 4fr, 3fr, 4fr, 4fr, 7fr),
+        rows: (10.5mm, 10.5mm, 10.5mm),
         fill: none,
-        table.cell(
-          align: center,
-          inset: 2pt,
-          stroke: (right: (thickness: 0pt)),
-        )[#logo(logo_path: logo_company)],
-        table.cell(
-          colspan: 2,
-          align: center + horizon,
-        )[#text(size: 2.0em, fill: black)[*CALCULATION SHEET*]],
-        table.cell(
-          align: center,
-          inset: 2pt,
-          stroke: (left: (thickness: 0pt)),
-        )[#logo(logo_path: logo_client)],
-        [*Project Title*], [#proj_title], [*Project No.*], table.cell(align: right)[#proj_no],
-        [*Client*], [#client], [*Calculation No.*], table.cell(align: right)[#calc_no],
-        [*Calculation Title*], [#title], [*Revision*], table.cell(align: right)[#rev_data.last().rev_no],
-        [*Project Phase*], [#proj_phase], [*Date*], table.cell(align: right)[#resolve_date(rev_data.last().rev_date)],
+        inset: 3pt,
+        align: left + horizon,
+        [PROJECT], table.cell(colspan: 3)[#proj_title], [SHEET NO.], [#calc_no],
+        table.cell(rowspan: 3, align: center + horizon, inset: 2pt)[
+          #logo(logo_path: logo_company, height: 29mm)
+        ],
+        [PROJECT NO.], [#proj_no], [PREPARED], [#rev_prep], [DATE], [#rev_date],
+        [CLIENT], [#client], [CHECKED], [#rev_check], [DATE], [#rev_date],
       )
     ],
     header-ascent: 1.5cm,

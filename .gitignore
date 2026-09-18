@@ -1,9 +1,10 @@
-/_extensions
 /.vscode
 /.cache
 /.CondaPkg
 /.venv
 /.env
 /.quarto
+/template.pdf
+/template.typ
 
 *.vdoc.*

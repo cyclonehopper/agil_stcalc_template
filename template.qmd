@@ -169,7 +169,7 @@ This calculation covers the structural components on the drawings and/or sketche
 # Methodology, Loading and Load Combinations
 Do some calculation here.
 
-<!-- some double column figures -->
+<!-- some double column figures 
 ::: {#fig-builtup_loads layout-ncol=2}
 
 ![Central to armour plate](images/rfem_model/builtup/load-central.png){#fig-load_central_builtup height="250"}
@@ -179,7 +179,9 @@ Do some calculation here.
 Impact loading scenarios
 :::
 
-<!-- attaching pdf files, A4, portrait -->
+-->
+
+<!-- attaching pdf files, A4, portrait 
 
 ```{=typst}
 #let pdf-file = "appendices/baseplate_anchor_design.pdf"
@@ -190,9 +192,10 @@ Impact loading scenarios
   #image(pdf-file, page: i, width: 95%)
 ]
 ```
+-->
 
 # Sketches
-
+<!-- 
 ```{=typst}
 #set page(paper: "a3", flipped: true, header: none)
 ```
@@ -216,4 +219,4 @@ Impact loading scenarios
   // for ideastatica, use 90% scaling
   #image(pdf-file, page: i, width: 98%)
   #image(pdf-file2, page: i, width: 98%)]
-```
+``` -->

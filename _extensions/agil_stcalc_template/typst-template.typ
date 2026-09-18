@@ -156,7 +156,7 @@
         [CLIENT], [#client], [CHECKED], [#rev_check], [DATE], [],
       )
     ],
-    header-ascent: 8.5pt,
+    header-ascent: 9.5pt,
   )
 
   set par(justify: true)

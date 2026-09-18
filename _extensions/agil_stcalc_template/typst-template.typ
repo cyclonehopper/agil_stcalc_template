@@ -140,6 +140,7 @@
       #set text(font: "Arial", size: 8.5pt, hyphenate: false)
       #set par(justify: false)
       #set table(stroke: (paint: black, thickness: 0.6pt))
+      #let outer = (paint: black, thickness: 1.3pt)
       #table(
         // Matches the Agilitus calculation pad (xlsx): 36-unit grid
         // 5 | 9 | 4 | 3 | 4 | 4 | 7
@@ -148,12 +149,16 @@
         fill: none,
         inset: 3pt,
         align: left + horizon,
+        table.hline(stroke: outer),
         [PROJECT], table.cell(colspan: 3)[#proj_title], [SHEET NO.], [#context counter(page).display("1/1", both: true)],
         table.cell(rowspan: 3, align: center + horizon, inset: 2pt)[
           #logo(logo_path: logo_company, height: 25mm)
         ],
         [PROJECT NO.], [#proj_no], [PREPARED], [#rev_prep], [DATE], [#rev_date],
         [CLIENT], [#client], [CHECKED], [#rev_check], [DATE], [],
+        table.hline(stroke: outer),
+        table.vline(x: 0, stroke: outer),
+        table.vline(x: 7, stroke: outer),
       )
     ],
     header-ascent: 9.5pt,

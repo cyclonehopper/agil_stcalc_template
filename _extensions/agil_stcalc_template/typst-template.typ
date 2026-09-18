@@ -123,7 +123,7 @@
 
   set page(
     paper: paper,
-    margin: (inside: 1.5cm, outside: 1.5cm, top: 6.5cm, bottom: 2.5cm),
+    margin: (inside: 1.5cm, outside: 1.5cm, top: 4.8cm, bottom: 2.5cm),
     numbering: "1/1",
     footer: context [
       #if counter(page).get().first() != 1 {
@@ -156,7 +156,7 @@
         [CLIENT], [#client], [CHECKED], [#rev_check], [DATE], [],
       )
     ],
-    header-ascent: 1.5cm,
+    header-ascent: 8.5pt,
   )
 
   set par(justify: true)

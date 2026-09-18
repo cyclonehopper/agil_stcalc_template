@@ -148,12 +148,12 @@
         fill: none,
         inset: 3pt,
         align: left + horizon,
-        [PROJECT], table.cell(colspan: 3)[#proj_title], [SHEET NO.], [#calc_no],
+        [PROJECT], table.cell(colspan: 3)[#proj_title], [SHEET NO.], [#context counter(page).display("1/1", both: true)],
         table.cell(rowspan: 3, align: center + horizon, inset: 2pt)[
           #logo(logo_path: logo_company, height: 29mm)
         ],
         [PROJECT NO.], [#proj_no], [PREPARED], [#rev_prep], [DATE], [#rev_date],
-        [CLIENT], [#client], [CHECKED], [#rev_check], [DATE], [#rev_date],
+        [CLIENT], [#client], [CHECKED], [#rev_check], [DATE], [],
       )
     ],
     header-ascent: 1.5cm,

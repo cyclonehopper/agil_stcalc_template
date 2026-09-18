@@ -144,13 +144,13 @@
         // Matches the Agilitus calculation pad (xlsx): 36-unit grid
         // 5 | 9 | 4 | 3 | 4 | 4 | 7
         columns: (5fr, 9fr, 4fr, 3fr, 4fr, 4fr, 7fr),
-        rows: (10.5mm, 10.5mm, 10.5mm),
+        rows: (9mm, 9mm, 9mm),
         fill: none,
         inset: 3pt,
         align: left + horizon,
         [PROJECT], table.cell(colspan: 3)[#proj_title], [SHEET NO.], [#context counter(page).display("1/1", both: true)],
         table.cell(rowspan: 3, align: center + horizon, inset: 2pt)[
-          #logo(logo_path: logo_company, height: 29mm)
+          #logo(logo_path: logo_company, height: 25mm)
         ],
         [PROJECT NO.], [#proj_no], [PREPARED], [#rev_prep], [DATE], [#rev_date],
         [CLIENT], [#client], [CHECKED], [#rev_check], [DATE], [],

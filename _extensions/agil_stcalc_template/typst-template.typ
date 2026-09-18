@@ -28,15 +28,15 @@
   }
 }
 
-// Revision rows for the document control table (latest on top). The current
-// (latest) revision gets a taller row so a signature can be applied below the
-// name; older revisions are collapsed to half height.
+// Revision rows for the document control table, oldest at the top and the
+// latest revision at the bottom. The latest row is taller so a signature can
+// be applied below the name; older revisions are collapsed to half height.
 #let doc_control_rows(data, border: 0.5pt + black, row_height: 12mm, vpad: 6pt) = {
   let out = ()
   if data != none and data.len() > 0 {
-    let d = data.rev()
-    for (i, rev) in d.enumerate() {
-      let h = if i == 0 { row_height } else { row_height / 2 }
+    let n = data.len()
+    for (i, rev) in data.enumerate() {
+      let h = if i == n - 1 { row_height } else { row_height / 2 }
       out.push(table.hline(stroke: border))
       out.push(block(height: calc.max(h - vpad, 0pt))[#rev.rev_no])
       out.push(rev.rev_desc)

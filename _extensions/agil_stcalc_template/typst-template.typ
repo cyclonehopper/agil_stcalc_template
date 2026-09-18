@@ -43,8 +43,8 @@
   for rev in data {
     (
       rev.rev_no,
-      resolve_date(rev.rev_date),
       rev.rev_desc,
+      resolve_date(rev.rev_date),
       rev.rev_prep,
       rev.rev_check,
       rev.rev_app,
@@ -199,12 +199,24 @@
     bottom,
     float: true,
     [
-      #set text(size: 0.8em, weight: "semibold")
+      #set text(size: 8pt)
+      #set par(justify: false)
+      #let border = 0.5pt + black
       #table(
-        columns: (1fr, 2fr, 6fr, 3fr, 3fr, 3fr),
-        table.header([Rev.], [Date], [Description], [Prepared], [Checked], [Approved]),
-        [#hide[Ag]], [#hide[Ag]], [#hide[Ag]], [#hide[Ag]], [#hide[Ag]], [#hide[Ag]],
+        // Matches the report's Document Control table: unshaded, outer border
+        // and horizontal separators only, text top-aligned.
+        columns: (1fr, 2.55fr, 1.52fr, 1.64fr, 1.64fr, 1.8fr),
+        stroke: none,
+        inset: (x: 5pt, y: 3pt),
+        align: left + top,
+        table.hline(stroke: border),
+        table.cell(colspan: 6)[#text(weight: "bold")[Document Control]],
+        table.hline(stroke: border),
+        [Revision], [Issue Reason], [Date], [Prepared], [Reviewed], [Approved],
         ..rev_table(rev_data),
+        table.hline(stroke: border),
+        table.vline(x: 0, stroke: border),
+        table.vline(x: 6, stroke: border),
       )
       #disclaimer(company: company, client: client, proj_title: proj_title)
     ],

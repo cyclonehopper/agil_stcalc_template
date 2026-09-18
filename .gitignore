@@ -6,5 +6,6 @@
 /.quarto
 /template.pdf
 /template.typ
+/xlsx/
 
 *.vdoc.*

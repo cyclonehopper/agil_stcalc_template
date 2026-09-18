@@ -25,6 +25,12 @@ revisions:
   rev_prep: Josua A
   rev_check: F. Hakim
   rev_app:
+- rev_no: B
+  rev_date: today
+  rev_desc: IFIR
+  rev_prep: Josua A
+  rev_check: F. Hakim
+  rev_app:
 ---
 
 ```{=typst}
@@ -87,18 +93,10 @@ using MyUnits, WindLoadModule, MyHelper
 
 # Introduction
 
-## Objective / Scope
-
-CV2A will be relocated to grid 18-19. This document presents the calculation required to demonstrate the soundness of the existing CV2A structure and the existing roof structure supporting CV2A during operation.
-
-This calculation is supporting documentation for the following sketches/drawings
-
-- 26016-ST-SKT-0002 - 26016-ST-SKT-0002_A C2A Relocation and Details
+## Objective / Scope 
 
 ## Assumptions
-* Strengthening of the rafters in shed 1 are installed for load combinations involving ultimate wind load.
-* Tapered flange channel 703x76 is taken from BS 4-1:1993 and is modelled as parallel flange channel (TFC is not an option in Space Gass). The flange thickness is taken as 11.2mm. The increase in thickness near the root is ignored.
-* services load taken as 100kg/m per conveyor.
+* n/a
 
 
 ## Exclusions
@@ -122,23 +120,9 @@ Unless specifically noted, the design complies with Australian Standards and sel
 
 Other information used in this design mainly for loads calculations, include:
 
-* 21206-ME-CAL-002 - Conveyor C1 Tripper Arrangement Weight
-* 22131-ST-CAL-0001 Dust collector frame calculation
-* 22131-ST-CAL-0002 Shed 1 assessment
-* 26016-ST-CAL-0001 CV2A Relocation Disassembly Structural Design
+* -
 
-
-## Methodology
-
-C2A hanger/support locations are kept similar to its previous location, except for support beam at grid B, where its moved 300mm east to miss an internal column. This is done so to minimize changes to the existing steel.
-
-Space Gass 14.00 was used to model the structure, with the following considerations:
-
-1. C2A installed and operating, together with C1, in its final position. C2 is not operating, just parked as close as possible to grid 18, where a stopper is located 2.3m from grid 18. The model is analysed for load combinations listed in @sec-load_combinations. Flooded belt is considered for this scenario, where C1 and C2A are fully loaded.
-
-2. C1 tripper relocating southward where the head end wheels on grid 18. At that point, the tripper can not operate because the chute position is blocked by CV2A. The model is analysed only for load combination 1.35G.
-3. Where C2 is operating, it is deemed not critical due to is relative position from grid 18, hence no further analysis was performed.
-4. Grid 19 is not critical, as it is similar to grid 25 and 26, supporting C2A prior to its relocation.
+## Methodology 
 
 
 {{< pagebreak >}}

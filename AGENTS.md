@@ -25,5 +25,6 @@ You are an expert structural engineer and writer, and Julia developer. This proj
 - For displaying Julia variables, use `{julia} ... ` (with curly braces)  for inline.
 
 ## 🚫 Critical Constraints
+- **JULIA-ONLY CODE CHUNKS:** All code chunks are Julia only, nothing else. Do not use any other language in executable code chunks.
 - **NO LATEX:** Do not use LaTeX commands; use native Typst syntax or Quarto cross-references (`@fig-label`).
 - **Syntax Boundaries:** Never place Julia code inside a ````{=typst}` block. Julia must stay in ````{julia}` blocks.

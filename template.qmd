@@ -6,7 +6,7 @@ julia:
     - QUARTO_JULIA_PROJECT= .
     - JULIA_PYTHONCALL_EXE = /home/ubuntu/julia_repo/python_env/bin/python
 execute:
-  cache: true
+  cache: false
 format:
   agil_stcalc_template-typst: default
 company: Agilitus
@@ -17,15 +17,9 @@ calc_no: 26016-ST-CAL-0002
 calc_title: C2A Permanent Installation Structural Design
 proj_phase: Detailed Design
 logo_company: "images/logo-agilitus-black.png"
-logo_client: "images/logo-MIM-glencore.png"
+# logo_client: "images/logo-MIM-glencore.png"
 revisions:
 - rev_no: A
-  rev_date: today
-  rev_desc: IFIR
-  rev_prep: Josua A
-  rev_check: F. Hakim
-  rev_app:
-- rev_no: B
   rev_date: today
   rev_desc: IFIR
   rev_prep: Josua A
@@ -36,18 +30,13 @@ revisions:
 ```{=typst}
 #like_header("Calculation Objective / Scope")
 ```
-* Relocation of existing C2A conveyor to grid 18-19
-* Assessment of existing support structure
+* n/a
 
 
 ```{=typst}
 #like_header("Calculation Assumptions")
 ```
-* Conveyor walkway live load is taken as 1.25kPa for global support design
-* Handrail is 0.15kN/m per handrail
-* Maximum operating wind load is taken as 25m/s
-* Knee braces at shed 1 rafter on grid 18-19 shall be strengthened per drg 595-4-6267
-* Truck bay strenthening shall be completed prior to arrival of storm season.
+* n/a
 
 
 ```{=typst}
@@ -208,51 +197,42 @@ Impact loading scenarios
 
 -->
 
-# Appendices {-}
+# Appendix A - Plastic Strain Limit Calibration
 
-## Calibration{-}
- 
-### Gros plastic strain calibration {#sec-gross_calibration_350}
+## Gross yielding check
 
-According to @sec-references, the plastic strain limit for steel is to be calibrated according to Ref[1] clause 5.1.3.2
+According to DNV-RP-C208 2016 ed., the plastic strain limit for steel is to be calibrated according to clause 5.1.3.2
 
-<!-- ![Calibration test piece](images/calibration/rfem_gr350_membrane.png){ width="400"} -->
+![Calibration test piece equivalent plastic strain (PEEQ)](images/calibration/gross_yielding_limit.png){ width="300"}
 
 ```{julia} 
 #| echo: true
-t = 15mm # std calibration thickness
-l = 30mm # per DNV calibration example length
-
-ϵ_crg = 0.0435 # from figure above
-ϕ = 0.75  # material partial safety factor for steel in AS 4100 (taken conservatively for material yielding according to Von Mises criteria)
-γtf = 1.2  # additional safety factor for tensile fracture according to the procedure per DNV-RP-C208 5.1.3
-
-# overall material safety factor
-γM = γtf * 1 / ϕ
-```
-
-therefore the allowable plastic strain limit, considering the safety factors is
-
-```{julia}
+ϵ_crg = 0.05  # from figure above 
+γM = 1.2;  # additional safety factor for tensile fracture according to the procedure per DNV-RP-C208 5.1.3
 ϵ_crg_uls = ϵ_crg / γM   # ultimate limit state, where L_yieldzone > 20t in the direction of principal strain, yield zone is when ϵp > 2%
 ```
 
-### Localized surface palstic strain calibration {#sec-calib_350_local}
+## Local yielding check
 
-According to DNV-RP-C208, the plastic strain limit for steel is to be calibrated according to Ref[1] clause 5.1.3.3.
+**Strain Gradients**
 
-<!-- ![Calibration test piece per DNV-RP-C208, local surface limit](images/calibration/rfem_gr350.png){width="400"} -->
-
-Therefore the localized surface plastic strain limit is
+For problems dominated by membrane strains (see DNV-RP-C208 example 8.1), but where the extent of the plastic zone as defined in clause 5.1.3.2 is less than 20 × t then the maximum local principal strain in any integration point in any element should be less than obtain from the analysis of CC01 modified as follows:
 
 ```{julia}
-ϵ_crl = 0.1525 # from figure above, where the extent of the yield zone (ep>2%) is > than 20t.
-
-Otherwise, the principal plastic strain is less than 
-t = 15mm
-le = t
-ϵ_crl = ϵ_crg*(1+5t/3le)
-ϵ_crl_uls = ϵ_crl / γM  
+tp = 15mm  # calibration piece thickness
+le = 2tp    # FE length (direction of principal strain)
+ϵ_crl_uls = ϵ_crg_uls * (1+5tp/3le)  # equation 10, DNV-RP-C208
 ```
 
- 
+**Out-of-plane bending**
+
+
+For problems dominated by *out-of-plane bending*, the local strain at the surface should be limited to what is obtained as the maximum surface strain found from analysing calibration case CC02 as shown in @fig-local_surf_limit. 
+
+![Calibration test piece per DNV-RP-C208, local surface plastic strain limit](images/calibration/local_surf_limit.png){#fig-local_surf_limit width="300"}
+
+```{julia}
+ϵ_crl_surface_uls = 0.25 / γM
+```
+
+The elements in the calibration analysis should have the same relative size relative to the thickness as for the elements in the area of interest. The **mid-point strain** should be limited to **ε_crl** as defined from CC01 and Equation (10) of DNV-RP-C208. 

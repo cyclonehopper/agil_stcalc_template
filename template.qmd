@@ -99,11 +99,12 @@ In general, design shall be in accordance with AS 4100 and other relevant standa
 
 Unless specifically noted, the design complies with Australian Standards and selected international standards as listed in the Design Criteria. The following summarises the key standards used in producing this calculation:
 
-* AS 1170.0 - 2002		Structural design actions - Part 0: General principles
-* AS 1170.1 - 2002		Structural design actions - Part 1: Permanent, imposed and other actions
-* AS 1170.2 - 2002		Structural design actions - Part 2: Wind actions
-* AS 1170.4 - 2002		Structural design actions - Part 4: Earthquake actions
-* AS 4100 - 1998		Steel structures
+* AS 1170.0 - 2017		Structural design actions - Part 0: General principles
+* AS 1170.1 - 2017		Structural design actions - Part 1: Permanent, imposed and other actions
+* AS 1170.2 - 2017		Structural design actions - Part 2: Wind actions
+* AS 1170.4 - 2017		Structural design actions - Part 4: Earthquake actions
+* AS 3600   - 2021		Concrete structures
+* AS 4100   - 2021		Steel structures
 
 ## Other Referenced Documents
 

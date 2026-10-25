@@ -1,0 +1,11 @@
+{
+  "folders": [
+    { "path": "/home/ubuntu/julia_repo/agil_stcalc_template" },
+    { "path": "/home/ubuntu/julia_repo/MyUnits" },
+    { "path": "/home/ubuntu/julia_repo/MyHelper" },
+    { "path": "/home/ubuntu/julia_repo/WindLoadModule" }
+  ],
+  "settings": {
+    "julia.environmentPath": "/home/ubuntu/julia_repo/agil_stcalc_template"
+  }
+}

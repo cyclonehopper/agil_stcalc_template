@@ -17,7 +17,13 @@ calc_no: 26016-ST-CAL-0002
 calc_title: C2A Permanent Installation Structural Design
 proj_phase: Detailed Design
 logo_company: "images/logo-agilitus-black.png"
-# logo_client: "images/logo-MIM-glencore.png"
+# logo_client: "images/<your-client-logo>.png"  # supply your own artwork
+
+# Page header style: "default" (Agilitus calculation pad) or "perth"
+# (Perth office "Calculation Sheet" header, per xlsx/agil_perth_calc_header.xlsx).
+# Omit for "default".
+# calc_header: perth
+
 revisions:
 - rev_no: A
   rev_date: today

@@ -14,7 +14,11 @@
 
 #let logo(logo_path: none, width: auto, height: auto) = {
   if logo_path != none {
-    image(logo_path, width: width, height: height)
+    // Typst paths never contain backslashes on this platform, but Pandoc
+    // escapes `_` and `.` when a YAML value is interpolated into a Typst
+    // string (e.g. `\_extensions/...`), so drop any backslashes.
+    let path = if type(logo_path) == str { logo_path.replace("\\", "") } else { logo_path }
+    image(path, width: width, height: height)
   } else {
     []
   }
@@ -63,6 +67,106 @@
   )
 }
 
+// ---------------------------------------------------------------------------
+// Page headers
+// ---------------------------------------------------------------------------
+// The header style is selected in the document metadata with `calc_header`:
+//   calc_header: default  -> Agilitus 7-column calculation pad (historical)
+//   calc_header: perth    -> Perth office "Calculation Sheet" header, as
+//                            reproduced from xlsx/agil_perth_calc_header.xlsx
+// Both styles are built from the same document metadata (project, client,
+// calculation numbers and the latest revision), so only the layout differs.
+
+// Default header: 7-column grid with project / prepared / checked / date
+// blocks and the company logo on the right-hand side.
+#let default_header(
+  proj_title: none,
+  proj_no: none,
+  client: none,
+  rev_prep: none,
+  rev_check: none,
+  rev_date: none,
+  logo_company: none,
+) = {
+  set text(font: "Arial", size: 8.5pt, hyphenate: false)
+  set par(justify: false)
+  set table(stroke: (paint: black, thickness: 0.6pt))
+  let outer = (paint: black, thickness: 1.3pt)
+  table(
+    // Matches the Agilitus calculation pad (xlsx): 36-unit grid
+    // 5 | 9 | 4 | 3 | 4 | 4 | 7
+    columns: (5fr, 9fr, 4fr, 3fr, 4fr, 4fr, 7fr),
+    rows: (9mm, 9mm, 9mm),
+    fill: none,
+    inset: 3pt,
+    align: left + horizon,
+    table.hline(stroke: outer),
+    [PROJECT], table.cell(colspan: 3)[#proj_title], [SHEET NO.], [#context counter(page).display("1/1", both: true)],
+    table.cell(rowspan: 3, align: center + horizon, inset: 2pt)[
+      #logo(logo_path: logo_company, height: 25mm)
+    ],
+    [PROJECT NO.], [#proj_no], [PREPARED], [#rev_prep], [DATE], [#rev_date],
+    [CLIENT], [#client], [CHECKED], [#rev_check], [DATE], [],
+    table.hline(stroke: outer),
+    table.vline(x: 0, stroke: outer),
+    table.vline(x: 7, stroke: outer),
+  )
+}
+
+// Perth header: a "Calculation Sheet" title bar (company logo left, client
+// logo right) over four rows of label/value pairs. The xlsx uses 12 equal
+// columns merged as 2|6|2|2 for the upper rows and 2|2|2|2|2|2 for the
+// prepared/checked/date row.
+//
+// `bar_title` is the caption in the title bar ("Calculation Sheet"); the
+// calculation title itself arrives as `calc_title`.
+#let perth_header(
+  proj_title: none,
+  proj_no: none,
+  client: none,
+  calc_no: none,
+  calc_title: none,
+  rev_no: none,
+  rev_date: none,
+  rev_prep: none,
+  rev_check: none,
+  logo_company: none,
+  logo_client: none,
+  bar_title: "Calculation Sheet",
+) = {
+  set text(font: "Arial", size: 8pt, hyphenate: false)
+  set par(justify: false)
+  set table(stroke: 0.5pt + black)
+  let lab = text.with(weight: "bold")
+  table(
+    columns: (1fr,) * 12,
+    // Rows grow when a title or number wraps (up to two lines per row before
+    // the header runs out of margin).
+    rows: (12mm, auto, auto, auto, auto),
+    fill: none,
+    inset: (x: 3pt, y: 3.5pt),
+    align: left + horizon,
+    table.cell(colspan: 12, inset: (x: 5pt, y: 3pt))[
+      #grid(
+        columns: (1fr, auto, 1fr),
+        align: (left + horizon, center + horizon, right + horizon),
+        logo(logo_path: logo_company, height: 9mm),
+        text(size: 15pt, weight: "bold")[#bar_title],
+        logo(logo_path: logo_client, height: 7mm),
+      )
+    ],
+    table.cell(colspan: 2)[#lab[Project Title]], table.cell(colspan: 6)[#proj_title],
+    table.cell(colspan: 2)[#lab[Project No.]], table.cell(colspan: 2)[#proj_no],
+    table.cell(colspan: 2)[#lab[Client]], table.cell(colspan: 6)[#client],
+    table.cell(colspan: 2)[#lab[Calculation No.]], table.cell(colspan: 2)[#calc_no],
+    table.cell(colspan: 2)[#lab[Calculation Title]], table.cell(colspan: 6)[#calc_title],
+    table.cell(colspan: 2)[#lab[Revision]], table.cell(colspan: 2)[#rev_no],
+    table.cell(colspan: 2)[#lab[Prepared]], table.cell(colspan: 2)[#rev_prep],
+    table.cell(colspan: 2)[#lab[Checked]], table.cell(colspan: 2)[#rev_check],
+    table.cell(colspan: 2)[#lab[Date]], table.cell(colspan: 2)[#rev_date],
+  )
+}
+
 #let article(
   title: none,
   authors: none,
@@ -75,6 +179,7 @@
   logo_company: none,
   logo_client: none,
   rev_data: none,
+  calc_header: "default",
   cols: 1,
   margin: (inside: 1.5cm, outside: 1.5cm, top: 5cm, bottom: 2.5cm),
   paper: "a4",
@@ -118,9 +223,18 @@
   let rev_no = if last_rev != none { last_rev.rev_no } else { none }
   let rev_date = if last_rev != none { resolve_date(last_rev.rev_date) } else { none }
 
+  // Header style: "default" (Agilitus pad) or "perth" (Perth office sheet).
+  // Accept surrounding whitespace and any capitalisation; fall back to
+  // "default" for unexpected values.
+  let header_style = if type(calc_header) == str { lower(calc_header.trim()) } else { "default" }
+  // The perth header is bottom-anchored above the text area, so the top margin
+  // is also its growth limit: 12mm title bar + four two-line rows + ascent,
+  // with ~5mm to spare so the top rule still clears a printer's margin.
+  let top_margin = if header_style == "perth" { 5.4cm } else { 4.8cm }
+
   set page(
     paper: paper,
-    margin: (inside: 1.5cm, outside: 1.5cm, top: 4.8cm, bottom: 2.5cm),
+    margin: (inside: 1.5cm, outside: 1.5cm, top: top_margin, bottom: 2.5cm),
     numbering: "1/1",
     footer: context [
       #if counter(page).get().first() != 1 {
@@ -133,31 +247,33 @@
       }
     ],
     footer-descent: 30%,
-    header: [
-      #set text(font: "Arial", size: 8.5pt, hyphenate: false)
-      #set par(justify: false)
-      #set table(stroke: (paint: black, thickness: 0.6pt))
-      #let outer = (paint: black, thickness: 1.3pt)
-      #table(
-        // Matches the Agilitus calculation pad (xlsx): 36-unit grid
-        // 5 | 9 | 4 | 3 | 4 | 4 | 7
-        columns: (5fr, 9fr, 4fr, 3fr, 4fr, 4fr, 7fr),
-        rows: (9mm, 9mm, 9mm),
-        fill: none,
-        inset: 3pt,
-        align: left + horizon,
-        table.hline(stroke: outer),
-        [PROJECT], table.cell(colspan: 3)[#proj_title], [SHEET NO.], [#context counter(page).display("1/1", both: true)],
-        table.cell(rowspan: 3, align: center + horizon, inset: 2pt)[
-          #logo(logo_path: logo_company, height: 25mm)
-        ],
-        [PROJECT NO.], [#proj_no], [PREPARED], [#rev_prep], [DATE], [#rev_date],
-        [CLIENT], [#client], [CHECKED], [#rev_check], [DATE], [],
-        table.hline(stroke: outer),
-        table.vline(x: 0, stroke: outer),
-        table.vline(x: 7, stroke: outer),
+    header: if header_style == "perth" {
+      perth_header(
+        proj_title: proj_title,
+        proj_no: proj_no,
+        client: client,
+        calc_no: calc_no,
+        // `title` is populated from the document's `calc_title` by
+        // typst-show.typ.
+        calc_title: title,
+        rev_no: rev_no,
+        rev_date: rev_date,
+        rev_prep: rev_prep,
+        rev_check: rev_check,
+        logo_company: logo_company,
+        logo_client: logo_client,
       )
-    ],
+    } else {
+      default_header(
+        proj_title: proj_title,
+        proj_no: proj_no,
+        client: client,
+        rev_prep: rev_prep,
+        rev_check: rev_check,
+        rev_date: rev_date,
+        logo_company: logo_company,
+      )
+    },
     header-ascent: 9.5pt,
   )
 

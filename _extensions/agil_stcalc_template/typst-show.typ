@@ -74,6 +74,12 @@ $if(revisions)$
   ),
 $endif$
 
+$if(calc-header)$
+  calc_header: "$calc-header$",
+$elseif(calc_header)$
+  calc_header: "$calc_header$",
+$endif$
+
 $if(lang)$
   lang: "$lang$",
 $endif$

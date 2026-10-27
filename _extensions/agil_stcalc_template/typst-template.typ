@@ -53,20 +53,6 @@
   out
 }
 
-#let disclaimer(company: "COMPANY", client: "CLIENT", proj_title: "SOME PROJECT") = {
-  text(
-    [This calculation was prepared by ]
-      + company
-      + [ pursuant to the Engineering Services Contract between ]
-      + company
-      + [ and ]
-      + client
-      + [ in connection with the services for ]
-      + proj_title
-      + [.],
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Page headers
 // ---------------------------------------------------------------------------
@@ -331,7 +317,6 @@
         table.vline(x: 0, stroke: border),
         table.vline(x: 6, stroke: border),
       )
-      #disclaimer(company: company, client: client, proj_title: proj_title)
     ],
   )
 

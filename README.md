@@ -128,5 +128,7 @@ From VS Code, with the file open (save first — the task reads from disk):
 | `Align comments (write)`   | aligns the current file in place                           |
 
 Run them with `Terminal ▸ Run Task…` (`Ctrl+Shift+P` → `Tasks: Run Task`).
-The tasks live in `.vscode/tasks.json`, which is versioned, so a project
-created from this template gets them automatically.
+The tasks live in `.vscode/tasks.json`, which is versioned in this template
+repository. Note that `quarto use template` does **not** copy dotfiles, so a
+brand-new project needs that file copied in (the `quarto-init` skill does this
+automatically); otherwise just run the script from the terminal as shown above.

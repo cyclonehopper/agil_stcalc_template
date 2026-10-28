@@ -85,12 +85,12 @@ function trailing_comment(line::AbstractString, st::ScanState)
                 end
             end
         elseif c == '`'
-            i += 1
+            i = nextind(line, i)                      # skip the opening backtick
             while i <= n && line[i] != '`'
-                i = line[i] == '\\' ? (i + 1 <= n ? nextind(line, i) : i) : nextind(line, i)
-                i = i <= n ? nextind(line, i) : i
+                escaped = line[i] == '\\' && i < n
+                i = escaped ? nextind(line, nextind(line, i)) : nextind(line, i)
             end
-            i = i <= n ? i + 1 : i
+            i = i <= n ? nextind(line, i) : i         # skip the closing backtick
         elseif c == '\''
             close_at = findnext('\'', line, nextind(line, i))
             if close_at === nothing
@@ -128,15 +128,17 @@ function align_lines(lines::Vector{String}; gap::Int = 2)
     out = copy(lines)
     st = ScanState()
     run = Int[]
+    parts = Tuple{String,String}[]
     changed = 0
 
+    # `parts` holds the (code, comment) split taken while scanning, i.e. with the
+    # carried state, so a line whose verdict depends on a `"""` or `#= … =#`
+    # spanning earlier lines is never re-scanned out of context here.
     function flush!()
         if length(run) > 1
-            scans = [trailing_comment(lines[i], ScanState()) for i in run]
-            # all entries of a run are known alignable
-            width = maximum(textwidth(s[1]) for s in scans) + gap
+            width = maximum(textwidth(p[1]) for p in parts) + gap
             for (k, i) in enumerate(run)
-                code, comment = scans[k]
+                code, comment = parts[k]
                 newline = string(code, ' '^(width - textwidth(code)), comment)
                 if newline != lines[i]
                     out[i] = newline
@@ -145,19 +147,16 @@ function align_lines(lines::Vector{String}; gap::Int = 2)
             end
         end
         empty!(run)
+        empty!(parts)
     end
 
     for (i, raw) in enumerate(lines)
-        line = chomp(raw)
-        cr = endswith(raw, '\r') ? "\r" : ""
-        ts = trailing_comment(line, st)
+        ts = trailing_comment(chomp(raw), st)
         if st.in_triple || st.block_depth > 0 || ts === nothing
             flush!()
         else
             push!(run, i)
-            if !isempty(cr)
-                out[i] = out[i]           # keep as-is; rewritten only on flush
-            end
+            push!(parts, ts)
         end
     end
     flush!()
@@ -169,7 +168,10 @@ md_close_re = r"^\s*```+\s*$"
 
 function process_text(text::AbstractString, path::AbstractString; gap::Int = 2)
     is_md = lowercase(splitext(path)[2]) in MARKDOWN_EXT
-    lines = split(text, '\n'; keepempty = true)
+    # Work on LF internally, then put CRLF back: the split/join below would
+    # otherwise drop the '\r' from any line the aligner rewrites.
+    crlf = occursin("\r\n", text)
+    lines = split(crlf ? replace(text, "\r\n" => "\n") : text, '\n'; keepempty = true)
     out = copy(lines)
     in_julia = false
     block = String[]
@@ -203,7 +205,8 @@ function process_text(text::AbstractString, path::AbstractString; gap::Int = 2)
         end
     end
     flush_block!()
-    return join(out, '\n'), changed
+    joined = join(out, '\n')
+    return (crlf ? replace(joined, "\n" => "\r\n") : joined), changed
 end
 
 function main(args)

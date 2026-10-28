@@ -34,7 +34,9 @@ You are an expert structural engineer and writer, and Julia developer. This proj
   blocks are left untouched. It does not reformat anything else — run it after
   JuliaFormatter, not instead of it.
 - VS Code tasks `Align comments (preview)` / `Align comments (write)` do the same
-  for the open file (save first — the task reads from disk).
+  for the open file (save first — the task reads from disk). They are defined in
+  `.vscode/tasks.json`, which `quarto use template` does not copy (dotfiles are
+  skipped); when the file is absent, use the terminal command above.
 
 ## 📏 Units and Quantities (Unitful)
 - **Keep units attached — do not strip them just because it is convenient.** Every physical quantity must stay a `Unitful` quantity (e.g. `12.5u"kN"`, `3.2u"m"`) from input through to printed output. Never store a bare number that silently loses its dimension. (The custom units `ksi`, `kipf`, … are registered by `MyUnits`, and the `u"..."` macro comes from `Unitful` — both loaded in the `template.qmd` preamble.)

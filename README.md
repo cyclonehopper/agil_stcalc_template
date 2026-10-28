@@ -133,14 +133,21 @@ repository. Note that `quarto use template` does **not** copy dotfiles, so a
 brand-new project needs that file copied in (the `quarto-init` skill does this
 automatically); otherwise just run the script from the terminal as shown above.
 
-### Binding a key (e.g. `Ctrl+Alt+A`)
+### Binding a key (`Alt+A`)
 
 VS Code and VSCodium have **no workspace-level keybindings** — shortcuts live in
 your user `keybindings.json` on the machine running the window (with Remote‑SSH
-that is your laptop, not the remote host). Add one entry, once:
+that is your laptop, not the remote host). Add this once (`Ctrl+Alt+A` is kept as
+a second binding in case `Alt+A` clashes with another extension):
 
 ```json
 [
+  {
+    "key": "alt+a",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Align comments (write)",
+    "when": "editorTextFocus && !editorReadonly"
+  },
   {
     "key": "ctrl+alt+a",
     "command": "workbench.action.tasks.runTask",
@@ -168,6 +175,7 @@ Notes:
   that ships `.vscode/tasks.json`; in a window where the task does not exist you
   get the task picker.
 * Do not confuse this with the **Better Align** extension (`chouzz.vscode-better-align`).
-  Its shortcut is `Alt+A`, it is a *client-side* extension unless installed on the
-  Remote‑SSH host, and it reformats more than comments (it also moves `=`, `:` and
-  `=>`). This template deliberately does not use it.
+  Its default shortcut is also `Alt+A`, and it reformats more than comments (it
+  also moves `=`, `:` and `=>`). This template deliberately does not use it — if it
+  is left installed, either uninstall it or rebind its `Alt+A` so only one command
+  owns the key (otherwise VS Code shows both as ambiguous and runs the first match).

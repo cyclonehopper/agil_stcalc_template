@@ -37,7 +37,7 @@ You are an expert structural engineer and writer, and Julia developer. This proj
   for the open file (save first — the task reads from disk). They are defined in
   `.vscode/tasks.json`, which `quarto use template` does not copy (dotfiles are
   skipped); when the file is absent, use the terminal command above.
-- A `Ctrl+Alt+A` shortcut has to be added to the **user** `keybindings.json`
+- An `Alt+A` shortcut (and `Ctrl+Alt+A`) has to be added to the **user** `keybindings.json`
   (VS Code/VSCodium have no workspace keybindings): `"command":
   "workbench.action.tasks.runTask", "args": "Align comments (write)"`. See
   README → *Binding a key*. Do not use the Better Align extension for this.

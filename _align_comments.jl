@@ -220,12 +220,17 @@ function main(args)
         a = args[i]
         if a == "--write"
             in_place = true
-        elseif a == "--gap" && i < length(args)
+        elseif a == "--gap"
+            i < length(args) || (println(stderr, "--gap needs a number"); return 2)
             i += 1
-            gap = parse(Int, args[i])
+            gap = tryparse(Int, args[i])
+            gap === nothing && (println(stderr, "--gap must be an integer >= 0"); return 2)
             gap >= 0 || (println(stderr, "--gap must be >= 0"); return 2)
         elseif a in ("-h", "--help")
-            println(read(@__FILE__, String) |> s -> split(s, "# Usage:")[1])
+            for l in eachline(@__FILE__)          # the leading comment block is the help
+                startswith(l, "#") || break
+                println(l)
+            end
             return 0
         else
             push!(files, a)

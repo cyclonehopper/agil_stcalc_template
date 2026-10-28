@@ -135,21 +135,17 @@ automatically); otherwise just run the script from the terminal as shown above.
 
 ### Binding a key (`Alt+A`)
 
-VS Code and VSCodium have **no workspace-level keybindings** — shortcuts live in
-your user `keybindings.json` on the machine running the window (with Remote‑SSH
-that is your laptop, not the remote host). Add this once (`Ctrl+Alt+A` is kept as
-a second binding in case `Alt+A` clashes with another extension):
+VS Code, VSCodium and Antigravity IDE have **no workspace-level keybindings** —
+shortcuts live in your user `keybindings.json` on the machine running the window
+(with Remote‑SSH that is your laptop, not the remote host). Add this once:
+
+> **Do not use `Ctrl+Alt+A`**: that is Antigravity's own *Archive conversation*
+> shortcut (Windows/Linux), which is why pressing it never aligned anything.
 
 ```json
 [
   {
     "key": "alt+a",
-    "command": "workbench.action.tasks.runTask",
-    "args": "Align comments (write)",
-    "when": "editorTextFocus && !editorReadonly"
-  },
-  {
-    "key": "ctrl+alt+a",
     "command": "workbench.action.tasks.runTask",
     "args": "Align comments (write)",
     "when": "editorTextFocus && !editorReadonly"
@@ -160,11 +156,11 @@ a second binding in case `Alt+A` clashes with another extension):
 `keybindings.json` locations (open it with `Ctrl+Shift+P` → *Preferences: Open
 Keyboard Shortcuts (JSON)*, which is the reliable way):
 
-| Platform | Path |
+| Platform | Path (`<app>` = `Code`, `VSCodium` or `Antigravity IDE`) |
 | -------- | ---- |
-| Windows  | `%APPDATA%\<Code\|VSCodium>\User\keybindings.json` |
-| macOS    | `~/Library/Application Support/<Code\|VSCodium>/User/keybindings.json` |
-| Linux    | `~/.config/<Code\|VSCodium>/User/keybindings.json` |
+| Windows  | `%APPDATA%\<app>\User\keybindings.json` |
+| macOS    | `~/Library/Application Support/<app>/User/keybindings.json` |
+| Linux    | `~/.config/<app>/User/keybindings.json` |
 
 Notes:
 
@@ -174,6 +170,9 @@ Notes:
 * Because it targets the task *label*, the same shortcut works in every project
   that ships `.vscode/tasks.json`; in a window where the task does not exist you
   get the task picker.
+* `Alt+A` is not a default in the VS Code base keymap or in Antigravity's agent
+  layer, and no extension shipped with this template binds it — but check the
+  Keyboard Shortcuts editor (record-keys) once if another extension may claim it.
 * Do not confuse this with the **Better Align** extension (`chouzz.vscode-better-align`).
   Its default shortcut is also `Alt+A`, and it reformats more than comments (it
   also moves `=`, `:` and `=>`). This template deliberately does not use it — if it

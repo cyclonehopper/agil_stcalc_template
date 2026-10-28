@@ -132,3 +132,42 @@ The tasks live in `.vscode/tasks.json`, which is versioned in this template
 repository. Note that `quarto use template` does **not** copy dotfiles, so a
 brand-new project needs that file copied in (the `quarto-init` skill does this
 automatically); otherwise just run the script from the terminal as shown above.
+
+### Binding a key (e.g. `Ctrl+Alt+A`)
+
+VS Code and VSCodium have **no workspace-level keybindings** — shortcuts live in
+your user `keybindings.json` on the machine running the window (with Remote‑SSH
+that is your laptop, not the remote host). Add one entry, once:
+
+```json
+[
+  {
+    "key": "ctrl+alt+a",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Align comments (write)",
+    "when": "editorTextFocus && !editorReadonly"
+  }
+]
+```
+
+`keybindings.json` locations (open it with `Ctrl+Shift+P` → *Preferences: Open
+Keyboard Shortcuts (JSON)*, which is the reliable way):
+
+| Platform | Path |
+| -------- | ---- |
+| Windows  | `%APPDATA%\<Code\|VSCodium>\User\keybindings.json` |
+| macOS    | `~/Library/Application Support/<Code\|VSCodium>/User/keybindings.json` |
+| Linux    | `~/.config/<Code\|VSCodium>/User/keybindings.json` |
+
+Notes:
+
+* Save the file first — the task reads from disk, so unsaved edits are not aligned.
+* `args` must match the task label exactly (`Align comments (write)`), otherwise
+  the shortcut opens the task picker instead of running it.
+* Because it targets the task *label*, the same shortcut works in every project
+  that ships `.vscode/tasks.json`; in a window where the task does not exist you
+  get the task picker.
+* Do not confuse this with the **Better Align** extension (`chouzz.vscode-better-align`).
+  Its shortcut is `Alt+A`, it is a *client-side* extension unless installed on the
+  Remote‑SSH host, and it reformats more than comments (it also moves `=`, `:` and
+  `=>`). This template deliberately does not use it.

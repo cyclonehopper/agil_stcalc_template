@@ -36,12 +36,24 @@ You are an expert structural engineer and writer, and Julia developer. This proj
 - VS Code tasks `Align comments (preview)` / `Align comments (write)` do the same
   for the open file (save first — the task reads from disk). They are defined in
   `.vscode/tasks.json`, which `quarto use template` does not copy (dotfiles are
-  skipped); when the file is absent, use the terminal command above.
+  skipped); when the file is absent, use the terminal command above. The write
+  task is the default *build* task, so `Ctrl+Shift+B` (`Cmd+Shift+B` on macOS)
+  runs it with no keybinding setup — but it still needs `.vscode/tasks.json`
+  present in that folder.
 - An `Alt+A` shortcut has to be added to the **user** `keybindings.json`
   (not `Ctrl+Alt+A` — that is Antigravity's *Archive conversation*)
   (VS Code/VSCodium have no workspace keybindings): `"command":
-  "workbench.action.tasks.runTask", "args": "Align comments (write)"`. See
-  README → *Binding a key*. Do not use the Better Align extension for this.
+  "workbench.action.tasks.runTask", "args": "Align comments (write)"`. Do not use
+  the Better Align extension for this.
+- If `Alt+A` does nothing, diagnose before changing anything: run *Developer:
+  Toggle Keyboard Shortcuts Troubleshooting*, focus the `.qmd`, press `Alt+A`
+  and read the resolver line — `No keybinding entries` means unbound (missing
+  entry, wrong app/profile, or a `keybindings.json` syntax error), `no when
+  clauses matched the context` means the `when` clause is false (focus must be in
+  a writable editor), and `matched <other command>` means a keybinding owns the
+  key — an extension or an app default; the log's `source:` field says which.
+  `Ctrl+Shift+B` (*Tasks: Run Build Task*) is the fallback: no keybinding needed,
+  but `.vscode/tasks.json` must be present.
 
 ## 📏 Units and Quantities (Unitful)
 - **Keep units attached — do not strip them just because it is convenient.** Every physical quantity must stay a `Unitful` quantity (e.g. `12.5u"kN"`, `3.2u"m"`) from input through to printed output. Never store a bare number that silently loses its dimension. (The custom units `ksi`, `kipf`, … are registered by `MyUnits`, and the `u"..."` macro comes from `Unitful` — both loaded in the `template.qmd` preamble.)

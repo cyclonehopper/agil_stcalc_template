@@ -127,7 +127,10 @@ From VS Code, with the file open (save first — the task reads from disk):
 | `Align comments (preview)` | prints the aligned file to the terminal, writes nothing    |
 | `Align comments (write)`   | aligns the current file in place                           |
 
-Run them with `Terminal ▸ Run Task…` (`Ctrl+Shift+P` → `Tasks: Run Task`).
+Run them with `Terminal ▸ Run Task…` (`Ctrl+Shift+P` → `Tasks: Run Task`), or
+just press **`Ctrl+Shift+B`** (`Cmd+Shift+B` on macOS — *Tasks: Run Build Task*):
+`Align comments (write)` is declared as the default *build* task, so that
+built-in shortcut needs no `keybindings.json` edit at all.
 The tasks live in `.vscode/tasks.json`, which is versioned in this template
 repository. Note that `quarto use template` does **not** copy dotfiles, so a
 brand-new project needs that file copied in (the `quarto-init` skill does this
@@ -156,11 +159,26 @@ shortcuts live in your user `keybindings.json` on the machine running the window
 `keybindings.json` locations (open it with `Ctrl+Shift+P` → *Preferences: Open
 Keyboard Shortcuts (JSON)*, which is the reliable way):
 
-| Platform | Path (`<app>` = `Code`, `VSCodium` or `Antigravity IDE`) |
+| Platform | Path (`<app>` = `Code` or `VSCodium`; Antigravity shown separately) |
 | -------- | ---- |
 | Windows  | `%APPDATA%\<app>\User\keybindings.json` |
 | macOS    | `~/Library/Application Support/<app>/User/keybindings.json` |
 | Linux    | `~/.config/<app>/User/keybindings.json` |
+
+For Antigravity IDE the folder is **`Antigravity`** (not "Antigravity IDE"):
+
+| Platform | Path |
+| -------- | ---- |
+| Windows  | `%APPDATA%\Antigravity\User\keybindings.json` |
+| macOS    | `~/Library/Application Support/Antigravity/User/keybindings.json` |
+| Linux    | `~/.config/Antigravity/User/keybindings.json` |
+
+Paths are still indicative: profiles put the file under
+`<data dir>/User/profiles/<id>/keybindings.json`, so use the command above when
+in doubt.
+
+Note: `Ctrl+Shift+B` / `Cmd+Shift+B` (default build task) does not need that file
+at all.
 
 Notes:
 
@@ -178,3 +196,46 @@ Notes:
   also moves `=`, `:` and `=>`). This template deliberately does not use it — if it
   is left installed, either uninstall it or rebind its `Alt+A` so only one command
   owns the key (otherwise VS Code shows both as ambiguous and runs the first match).
+
+### If `Alt+A` does nothing
+
+Work down this list; each step either fixes it or tells you what the next step is.
+
+1. **Which window are you in?** Antigravity IDE, VS Code and VSCodium each keep
+   their own `keybindings.json` **and their own profiles**. A binding added in
+   one app (or in a different profile of the same app) does nothing in another.
+   Add it in the app you are looking at, via `Ctrl+Shift+P` → *Preferences: Open
+   Keyboard Shortcuts (JSON)* — that command opens the file the running window
+   actually reads, which beats guessing a path.
+2. **Does the key reach a command?** `Ctrl+Shift+P` → *Developer: Toggle
+   Keyboard Shortcuts Troubleshooting*, then press `Alt+A` with the `.qmd`
+   focused and read the last resolver line in the output panel:
+   * `matched workbench.action.tasks.runTask` → the shortcut is fine and the
+     *task* is the problem. If a task picker opened (or the list is empty)
+     instead of running anything, either this folder has no `.vscode/tasks.json`
+     (see above — copy it in) or your `args` string does not match
+     `Align comments (write)` character-for-character. Otherwise read the
+     `Align comments (write)` terminal for the script's `N line(s) realigned`
+     line. If the file was never saved, the task aligned the old on-disk copy —
+     save and press again.
+   * `matched <some other command>` (e.g. `vscode-better-align.align`) → a
+     keybinding owns `Alt+A`: an extension, or an app-specific default. The
+     `source:` field on the log line says which. Uninstall or rebind the owner,
+     or choose a free key.
+   * `no when clauses matched the context` → the entry exists but its `when`
+     clause is false. The recommended binding needs editor focus in a writable
+     file, so click into the `.qmd` first; focus in the terminal, panel or a
+     read-only editor will not match.
+   * `No keybinding entries` → `Alt+A` is unbound: the entry is missing, is in
+     another app/profile, or `keybindings.json` has a JSON error (the editor
+     shows a squiggle and discards every entry in the file — comments and
+     trailing commas themselves are legal).
+3. **Is the folder trusted?** In Restricted Mode the task does not start
+   silently: VS Code shows a *Trust* prompt first. Accept it; if you dismissed
+   it, the window stays restricted and the task keeps prompting.
+4. **Skip the shortcut entirely.** Run `Tasks: Run Build Task` from the command
+   palette — its default key is `Ctrl+Shift+B` (`Cmd+Shift+B` on macOS; if
+   several workspace folders define a build task, VS Code asks which one).
+   `Align comments (write)` is the default *build* task, so this needs no
+   `keybindings.json` edit and no extension. If that works and `Alt+A` does not,
+   the problem is step 1/2, not the alignment script.

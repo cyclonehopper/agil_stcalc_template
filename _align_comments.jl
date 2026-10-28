@@ -1,14 +1,14 @@
 #!/usr/bin/env julia
-# align_comments.jl — align trailing `#` comments in contiguous runs of code.
+# _align_comments.jl — align trailing `#` comments in contiguous runs of code.
 #
 # JuliaFormatter (incl. v2.14) has NO option for this: align_assignment only
 # moves `=`, align_pair_arrow only `=>`, and comment columns are left as typed.
 # This script fills that gap without reformatting anything else.
 #
 # Usage:
-#   julia align_comments.jl FILE             # print aligned text to stdout
-#   julia align_comments.jl --write FILE...  # rewrite files in place
-#   julia align_comments.jl --gap 3 FILE     # min spaces before `#` (default 2)
+#   julia _align_comments.jl FILE             # print aligned text to stdout
+#   julia _align_comments.jl --write FILE...  # rewrite files in place
+#   julia _align_comments.jl --gap 3 FILE     # min spaces before `#` (default 2)
 #
 # Rules:
 #   * Only lines that have code AND a trailing `#` comment are touched.
@@ -129,6 +129,7 @@ function align_lines(lines::Vector{String}; gap::Int = 2)
     st = ScanState()
     run = Int[]
     parts = Tuple{String,String}[]
+    ends = String[]
     changed = 0
 
     # `parts` holds the (code, comment) split taken while scanning, i.e. with the
@@ -139,7 +140,7 @@ function align_lines(lines::Vector{String}; gap::Int = 2)
             width = maximum(textwidth(p[1]) for p in parts) + gap
             for (k, i) in enumerate(run)
                 code, comment = parts[k]
-                newline = string(code, ' '^(width - textwidth(code)), comment)
+                newline = string(code, ' '^(width - textwidth(code)), comment, ends[k])
                 if newline != lines[i]
                     out[i] = newline
                     changed += 1
@@ -148,15 +149,20 @@ function align_lines(lines::Vector{String}; gap::Int = 2)
         end
         empty!(run)
         empty!(parts)
+        empty!(ends)
     end
 
     for (i, raw) in enumerate(lines)
-        ts = trailing_comment(chomp(raw), st)
+        # chomp() leaves a lone '\r' in place, so strip it here and put it back
+        # on flush: only rewritten lines may change, and never their terminator.
+        cr = endswith(raw, '\r') ? "\r" : ""
+        ts = trailing_comment(isempty(cr) ? raw : chop(raw), st)
         if st.in_triple || st.block_depth > 0 || ts === nothing
             flush!()
         else
             push!(run, i)
             push!(parts, ts)
+            push!(ends, cr)
         end
     end
     flush!()
@@ -168,10 +174,7 @@ md_close_re = r"^\s*```+\s*$"
 
 function process_text(text::AbstractString, path::AbstractString; gap::Int = 2)
     is_md = lowercase(splitext(path)[2]) in MARKDOWN_EXT
-    # Work on LF internally, then put CRLF back: the split/join below would
-    # otherwise drop the '\r' from any line the aligner rewrites.
-    crlf = occursin("\r\n", text)
-    lines = split(crlf ? replace(text, "\r\n" => "\n") : text, '\n'; keepempty = true)
+    lines = split(text, '\n'; keepempty = true)
     out = copy(lines)
     in_julia = false
     block = String[]
@@ -205,8 +208,7 @@ function process_text(text::AbstractString, path::AbstractString; gap::Int = 2)
         end
     end
     flush_block!()
-    joined = join(out, '\n')
-    return (crlf ? replace(joined, "\n" => "\r\n") : joined), changed
+    return join(out, '\n'), changed
 end
 
 function main(args)
@@ -221,6 +223,7 @@ function main(args)
         elseif a == "--gap" && i < length(args)
             i += 1
             gap = parse(Int, args[i])
+            gap >= 0 || (println(stderr, "--gap must be >= 0"); return 2)
         elseif a in ("-h", "--help")
             println(read(@__FILE__, String) |> s -> split(s, "# Usage:")[1])
             return 0
@@ -230,7 +233,7 @@ function main(args)
         i += 1
     end
 
-    isempty(files) && (println(stderr, "usage: julia align_comments.jl [--write] [--gap N] FILE..."); return 2)
+    isempty(files) && (println(stderr, "usage: julia _align_comments.jl [--write] [--gap N] FILE..."); return 2)
 
     total = 0
     for f in files

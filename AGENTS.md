@@ -24,6 +24,18 @@ You are an expert structural engineer and writer, and Julia developer. This proj
 - Default to  `Plots.jl` libraries for visualizations unless otherwise specified.
 - Ensure all Julia packages are referenced in the local `Project.toml`.
 
+## 🧹 Formatting (trailing comments)
+- Align trailing `#` comments with the bundled script, never by hand and never by
+  respacing code: `julia _align_comments.jl --write <file>` (add `--gap N` to
+  change the minimum spaces before `#`; default 2). Drop `--write` for a
+  stdout-only preview.
+- It only rewrites lines that carry code **and** a trailing `#` comment, and only
+  inside ```` ```{julia} ```` blocks of a `.qmd`, so prose, headings and Typst
+  blocks are left untouched. It does not reformat anything else — run it after
+  JuliaFormatter, not instead of it.
+- VS Code tasks `Align comments (preview)` / `Align comments (write)` do the same
+  for the open file (save first — the task reads from disk).
+
 ## 📏 Units and Quantities (Unitful)
 - **Keep units attached — do not strip them just because it is convenient.** Every physical quantity must stay a `Unitful` quantity (e.g. `12.5u"kN"`, `3.2u"m"`) from input through to printed output. Never store a bare number that silently loses its dimension. (The custom units `ksi`, `kipf`, … are registered by `MyUnits`, and the `u"..."` macro comes from `Unitful` — both loaded in the `template.qmd` preamble.)
 - Assign into typed fields with the unit included (`σ = 250u"MPa"`), and give documented unit annotations/defaults rather than raw `Float64` values.

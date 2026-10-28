@@ -1,0 +1,42 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Align comments (preview)",
+            "detail": "Print the current file with trailing # comments aligned; writes nothing",
+            "type": "shell",
+            "command": "julia",
+            "args": [
+                "${workspaceFolder}/_align_comments.jl",
+                "--gap",
+                "2",
+                "${file}"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Align comments (write)",
+            "detail": "Align trailing # comments in the current file in place (save first: the task reads from disk)",
+            "type": "shell",
+            "command": "julia",
+            "args": [
+                "${workspaceFolder}/_align_comments.jl",
+                "--gap",
+                "2",
+                "--write",
+                "${file}"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}

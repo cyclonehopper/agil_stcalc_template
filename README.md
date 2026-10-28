@@ -98,3 +98,35 @@ Notes:
   should keep its artwork beside the document.
 * The document-control table and disclaimer at the foot of the first page are
   identical for both styles.
+
+## Aligning trailing comments
+
+`_align_comments.jl` aligns the trailing `#` comments of contiguous runs of
+code lines, so calculation sheets read as a clean column of notes. JuliaFormatter
+has no option for this (`align_assignment` only moves `=`, `align_pair_arrow`
+only `=>`), so this small script fills the gap **without reformatting anything
+else**.
+
+In `.qmd` files only fenced `` ```{julia} `` blocks are touched — prose,
+headings (which start with `#`) and Typst blocks are never rewritten. `#`
+inside strings, char literals, backtick commands, `"""…"""` and `#= … =#`
+comments is ignored, and `A' # transpose` still aligns.
+
+From the terminal:
+
+```bash
+julia _align_comments.jl FILE              # preview: aligned text on stdout
+julia _align_comments.jl --write FILE...   # rewrite files in place
+julia _align_comments.jl --gap 3 FILE      # min spaces before `#` (default 2)
+```
+
+From VS Code, with the file open (save first — the task reads from disk):
+
+| Task                       | Effect                                                    |
+| -------------------------- | --------------------------------------------------------- |
+| `Align comments (preview)` | prints the aligned file to the terminal, writes nothing    |
+| `Align comments (write)`   | aligns the current file in place                           |
+
+Run them with `Terminal ▸ Run Task…` (`Ctrl+Shift+P` → `Tasks: Run Task`).
+The tasks live in `.vscode/tasks.json`, which is versioned, so a project
+created from this template gets them automatically.

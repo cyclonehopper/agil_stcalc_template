@@ -83,3 +83,76 @@ You are an expert structural engineer and writer, and Julia developer. This proj
 - **JULIA-ONLY CODE CHUNKS:** All code chunks are Julia only, nothing else. Do not use any other language in executable code chunks.
 - **NO LATEX:** Do not use LaTeX commands; use native Typst syntax or Quarto cross-references (`@fig-label`).
 - **Syntax Boundaries:** Never place Julia code inside a ````{=typst}` block. Julia must stay in ````{julia}` blocks.
+
+## Unit rules (Unitful.jl)
+
+These rules are mandatory in this package. Breaking them produces **silently
+wrong numbers**, not exceptions.
+
+### R1 — Never strip both sides of a `*` or `/` to "cancel" units
+
+`ustrip` does **not** convert to SI. It drops the unit and keeps the number in
+whatever unit the value happens to be stored in, so the units do **not** cancel.
+
+```julia
+# WRONG — the result depends on how each value happened to be stored
+r = ustrip(x) / ustrip(y)        # 0.5u"m" / 500u"mm" → 0.001   (should be 1.0)
+r = ustrip(x) * ustrip(y)        # 2u"kN" * 300u"mm" → 600, not 0.6 N·m
+
+# WRONG TOO — dividing quantities first is not enough. The quotient still
+# carries a FreeUnits scale factor (e.g. `m mm^-1`) and ustrip throws it away.
+r = ustrip(x / y)                # 500u"kN" / 1.0u"MN" → 500.0 (should be 0.5)
+
+# RIGHT — convert to SI base units first, then strip the genuinely
+# dimensionless result
+r = ustrip(upreferred(x / y))    # → 0.5
+r = ustrip(upreferred(x * y))    # products too
+```
+
+Every dimensionless result — utilisation `M/(ϕM_s)`, slenderness
+`(b/t)·√(f_y/250)`, strain, `a/d`, `I/A`, `k = I/A`, `M/EI` — must be built this
+way, or simply left as a `Quantity` and compared/plotted as a quantity.
+
+### R2 — `ustrip(unit, x)` converts; `ustrip(x)` is a trap
+
+- `ustrip(u"mm", x)` converts `x` to mm and then drops the unit — explicit and safe.
+- `ustrip(x)` keeps the caller's storage unit. Never use it on a value that will
+  be combined with another value, never next to a hard-coded unit suffix, and
+  never on a quantity that is really a ratio.
+
+### R3 — Do not strip units just to put a value in a string
+
+Unitful already renders the unit, so stripping only risks the printed unit
+disagreeing with the number:
+
+```julia
+# WRONG / redundant
+"$(ustrip(u"mm", L))mm"    # suffix can drift out of sync with the conversion
+"$(ustrip(θ))°"            # prints radians next to a degree sign
+
+# RIGHT
+"$L"                       # "500.0 mm"
+"$(L |> u\"mm\")"          # "500.0 mm"   (converted to a chosen display unit)
+"$(f2(L |> u\"mm\"))"      # "500.0 mm"   (rounded via MyUnits.f2, unit retained)
+```
+
+Strip only where a bare `Float64` is genuinely required: a Python/native call, a
+numeric solver, an array handed to a plotting library, or a generated Julia code
+token that must have no space before its unit (e.g. `500mm`). For that last case
+build the number and the unit text from a single source so they cannot drift.
+
+### R4 — Name the unit at every strip boundary
+
+When a value must leave Unitful, name the unit at the boundary and re-attach it
+on the way back:
+
+```julia
+_d  = ustrip(u"mm", d)                            # out: explicit mm
+Ag  = pyconvert(Float64, sec.get_area()) * mm^2   # back: re-attach
+```
+
+### R5 — One unit system per external call
+
+Python round-trips (sectionproperties / concreteproperties) are fed **mm, N, MPa,
+N·mm** here. Never mix a `u"mm"`-stripped value with a bare number computed in
+metres.

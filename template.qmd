@@ -8,7 +8,9 @@ julia:
 execute:
   cache: false
 format:
-  agil_stcalc_template-typst: default
+  # agil_stcalc_template-typst: default
+  agil_stcalc_template-typst:  
+    calc_header: perth
 company: Agilitus
 client: Glencore
 proj_no: 26016
@@ -30,7 +32,7 @@ revisions:
   rev_desc: IFIR
   rev_prep: Josua A
   rev_check: F. Hakim
-  rev_app:
+  rev_app: F Hakim
 ---
 
 ```{=typst}

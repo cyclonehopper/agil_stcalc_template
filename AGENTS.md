@@ -18,6 +18,34 @@ You are an expert structural engineer and writer, and Julia developer. This proj
 - For `.qmd` projects, a separate **reviewer is not needed** when the output is produced by these tools — the tool results are authoritative and can be used directly without a review step.
 - For `.qmd` projects, when the output comes from `enggtoolsmcp`, there is **no need to render the `.qmd`** — skip the Quarto/Typst render step and use the tool output directly.
 
+## ✅ Verification (qmd content edits)
+- Editing a `.qmd` calculation document in any Julia/Quarto calculation project
+  needs **no verification step**. Julia execution fails loudly, the user runs the
+  document and pastes any error back, and the fix proceeds from that error.
+- Do **not**: run `quarto render`; re-execute chunks or reproduce them in scratch
+  scripts to "check the numbers"; spawn a reviewer subagent for a `.qmd` edit;
+  re-derive SpaceGass/Julia results to check them.
+- Reading the input files (`.sg`/`.SG`, `.xlsx`, `.csv`, the project's SpaceGass model)
+  to source a value you need for the edit **is** required — it is re-deriving
+  results to verify them that is ruled out.
+- Do: make the edit; when the project ships `_align_comments.jl` and trailing
+  comments changed, run `julia _align_comments.jl --write <file>`; report the
+  diff, the files touched and anything deliberately left undone, and state
+  explicitly that the render was not run — then stop.
+- **Not relaxed** by this rule: the no-invented-values and provenance rules in the
+  agent's system prompt; staying inside the requested scope; the unit rules (no
+  `ustrip`/`uconvert`).
+- Also not relaxed: input files (`.sg`/`.SG`, `.xlsx`, `.csv`) are read-only.
+- Scope limit: `.qmd` content only. Library/package source (**e.g.** `enggtoolsmcp`,
+  `SpaceGassIO`, `MyHelper`, `AS4100`, `WindLoadModule`) and rule files such as
+  this `AGENTS.md` still get a review step.
+- Carve-out the "it fails loudly" argument does not cover: if an edit changes a
+  dependency or a `Manifest.toml` pin (or anything whose breakage would surface
+  later and silently, in a different chunk), flag it in the report rather than
+  assuming the render will catch it. The same applies to the silent-wrongness
+  classes the Unitful rules name: if the edit touches unit handling, say in the
+  report that it was not executed, so the user checks it.
+
 ## ⚙️ Execution Rules (Julia)
 - Use executable blocks: ` ```{julia} ... ``` ` (with curly braces) for Julia code that must run.
 - Use ` #| ` for block-level options (e.g., `#| label: fig-1`, `#| echo: false`).

@@ -167,7 +167,7 @@
   rev_data: none,
   calc_header: "default",
   cols: 1,
-  margin: (inside: 1.5cm, outside: 1.5cm, top: 5cm, bottom: 2.5cm),
+  margin: (inside: 1.5cm, outside: 1.5cm, top: 4cm, bottom: 2.5cm),
   paper: "a4",
   lang: "en",
   region: "AU",

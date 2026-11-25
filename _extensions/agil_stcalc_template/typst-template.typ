@@ -216,7 +216,7 @@
   // The perth header is bottom-anchored above the text area, so the top margin
   // is also its growth limit: 12mm title bar + four two-line rows + ascent,
   // with ~5mm to spare so the top rule still clears a printer's margin.
-  let top_margin = if header_style == "perth" { 5.4cm } else { 4.8cm }
+  let top_margin = if header_style == "perth" { 4.5cm } else { 4.5cm }
 
   set page(
     paper: paper,
